@@ -1,55 +1,84 @@
-// Simple in-memory rate limiter middleware for request rate-limiting
-// Keeps track of requests using a Map structure. Safe for development/mockup environments.
+// In-memory rate limiter middleware using the Sliding Window Counter algorithm.
+// Blends request counts from the previous and current fixed windows to prevent boundary burst attacks.
 
 const createRateLimiter = (options = {}) => {
-  const cache = new Map(); // Stores key -> { count, resetTime }
+  // Map structure: key -> { currentWindowStart, currentCount, previousCount }
+  const cache = new Map();
 
   const windowMs = options.windowMs || 15 * 60 * 1000; // Time window (default 15 minutes)
-  const maxAttempts = options.max || 5;              // Max requests per window
+  const maxAttempts = options.max || 5;              // Max allowed requests per window
   const message = options.message || 'Too many attempts, please try again later.';
   
   // Custom key generator function (defaults to IP address)
   const keyGenerator = options.keyGenerator || ((req) => req.ip);
 
+  // Periodic cleanup of stale cache entries to prevent memory leaks over long runtimes
+  const CLEANUP_INTERVAL = Math.max(windowMs * 2, 60 * 1000);
+  const cleanupTimer = setInterval(() => {
+    const now = Date.now();
+    for (const [key, record] of cache.entries()) {
+      // Remove entries with no activity for more than two full windows
+      if (now - record.currentWindowStart > windowMs * 2) {
+        cache.delete(key);
+      }
+    }
+  }, CLEANUP_INTERVAL);
+
+  // Prevent cleanup timer from blocking process exit in node
+  if (cleanupTimer.unref) {
+    cleanupTimer.unref();
+  }
+
   return (req, res, next) => {
     const key = keyGenerator(req);
     const now = Date.now();
 
-    // Cleanup old expired cache items periodically to prevent memory leaks
-    cache.forEach((value, k) => {
-      if (now > value.resetTime) {
-        cache.delete(k);
-      }
-    });
+    // Calculate start timestamp of current fixed window
+    const currentWindowStart = Math.floor(now / windowMs) * windowMs;
 
     let record = cache.get(key);
 
     if (!record) {
-      // First request in the time window
+      // New key: initialize window counts
       record = {
-        count: 1,
-        resetTime: now + windowMs
+        currentWindowStart,
+        currentCount: 0,
+        previousCount: 0
       };
       cache.set(key, record);
-      return next();
+    } else if (record.currentWindowStart < currentWindowStart) {
+      // Time moved into a new window: slide window forward
+      const windowsPassed = Math.floor((currentWindowStart - record.currentWindowStart) / windowMs);
+
+      if (windowsPassed === 1) {
+        // Advanced by 1 window: current window becomes previous window
+        record.previousCount = record.currentCount;
+      } else {
+        // Advanced by 2 or more windows: previous window is empty
+        record.previousCount = 0;
+      }
+
+      record.currentCount = 0;
+      record.currentWindowStart = currentWindowStart;
     }
 
-    // Check if the current time has passed the reset window
-    if (now > record.resetTime) {
-      record.count = 1;
-      record.resetTime = now + windowMs;
-      cache.set(key, record);
-      return next();
-    }
+    // Calculate how far into the current window we are
+    const elapsedTime = now - currentWindowStart;
 
-    // Increment request count
-    record.count += 1;
-    cache.set(key, record);
+    // Weight of previous window decreases linearly as current window progresses
+    const previousWeight = (windowMs - elapsedTime) / windowMs;
 
-    // Block request if count exceeds limit
-    if (record.count > maxAttempts) {
+    // Estimated total requests in the sliding rolling frame
+    const estimatedRequests = record.previousCount * previousWeight + record.currentCount;
+
+    // If estimated requests reach or exceed max limit, reject request
+    if (estimatedRequests >= maxAttempts) {
       return res.status(429).json({ msg: message });
     }
+
+    // Allow request and increment current count
+    record.currentCount += 1;
+    cache.set(key, record);
 
     next();
   };
@@ -85,6 +114,7 @@ const orderLimiter = createRateLimiter({
 });
 
 module.exports = {
+  createRateLimiter,
   loginLimiter,
   registerLimiter,
   orderLimiter

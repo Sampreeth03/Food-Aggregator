@@ -2,6 +2,7 @@ const Order = require('../models/Order');
 const Restaurant = require('../models/Restaurant');
 const RiderProfile = require('../models/RiderProfile');
 const User = require('../models/Users');
+const CustomerProfile = require('../models/CustomerProfile');
 
 // Passive helper to check if any assigned rider took too long to accept, and re-dispatches to next best rider
 const checkAndProcessRiderTimeouts = async () => {
@@ -50,9 +51,37 @@ const checkAndProcessRiderTimeouts = async () => {
 // 1. Place a new order (Strictly for customers)
 exports.placeOrder = async (req, res) => {
   const customerId = req.user.id; 
-  const { restaurantId, items } = req.body;
+  const { restaurantId, items, deliveryAddress, address } = req.body;
 
   try {
+    let finalAddress = (deliveryAddress || address || '').trim();
+
+    // Check if address was provided in profile if not in request body
+    if (!finalAddress) {
+      const profileDoc = await CustomerProfile.findOne({ user: customerId });
+      if (profileDoc && profileDoc.address) {
+        finalAddress = profileDoc.address.trim();
+      }
+    }
+
+    if (!finalAddress) {
+      return res.status(400).json({ 
+        msg: 'Delivery address is required to place an order. Please provide or confirm your delivery address.' 
+      });
+    }
+
+    // Update customer profile address for future orders
+    let customerProfile = await CustomerProfile.findOne({ user: customerId });
+    if (customerProfile) {
+      customerProfile.address = finalAddress;
+      await customerProfile.save();
+    } else {
+      await CustomerProfile.create({
+        user: customerId,
+        address: finalAddress
+      });
+    }
+
     const restaurant = await Restaurant.findById(restaurantId);
     if (!restaurant) {
       return res.status(404).json({ msg: 'Restaurant not found' });
@@ -107,6 +136,7 @@ exports.placeOrder = async (req, res) => {
     const newOrder = await Order.create({
       customer: customerId,
       restaurant: restaurantId,
+      deliveryAddress: finalAddress,
       items: orderItemsSnapshot,
       totalAmount: totalAmount,
       status: 'placed',

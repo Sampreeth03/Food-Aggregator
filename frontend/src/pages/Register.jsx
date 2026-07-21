@@ -1,5 +1,6 @@
 import React, { useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { AddressAutocomplete } from '../components/AddressAutocomplete';
 
 export const Register = ({ navigateTo }) => {
   const { register } = useContext(AuthContext);
@@ -236,7 +237,7 @@ export const Register = ({ navigateTo }) => {
             </select>
           </div>
 
-          {/* Location Simulator Section */}
+          {/* Location & Building Search Section */}
           <div className="form-group" style={{
             border: '1px solid var(--border-color)',
             padding: '1rem',
@@ -245,10 +246,23 @@ export const Register = ({ navigateTo }) => {
             marginTop: '1.5rem',
             marginBottom: '1.5rem'
           }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-main)' }}>Location Coordinate Simulator</span>
+            <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-main)' }}>Location Building & Coordinates</span>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-              Simulates your physical location coordinates for dispatch routing.
+              Search your building or landmark to set your exact rooftop location coordinates.
             </p>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <AddressAutocomplete
+                placeholder="Search building (e.g. Park Ridge Apartments Guntur)..."
+                onSelectAddress={({ latitude, longitude }) => {
+                  if (latitude && longitude) {
+                    setLat(latitude);
+                    setLng(longitude);
+                  }
+                }}
+                disabled={isSubmitting}
+              />
+            </div>
 
             <div className="flex gap-2" style={{ flexWrap: 'wrap', marginBottom: '0.75rem' }}>
               <button type="button" className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderRadius: '4px' }} onClick={() => handleLocationPreset('center')}>

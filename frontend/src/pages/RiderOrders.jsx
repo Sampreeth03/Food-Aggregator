@@ -238,6 +238,11 @@ export const RiderOrdersView = ({ navigateTo }) => {
                         <span style={{ fontWeight: '600', fontSize: '0.95rem', color: 'var(--text-main)' }}>
                           {job.customer?.name}
                         </span>
+                        {job.deliveryAddress && (
+                          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block' }}>
+                            Address: {job.deliveryAddress}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -325,8 +330,13 @@ export const RiderOrdersView = ({ navigateTo }) => {
                       <span style={{ fontWeight: '600', fontSize: '0.95rem', color: 'var(--text-main)' }}>
                         {job.customer?.name}
                       </span>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block' }}>
-                        Delivery Coordinates: [{job.customer?.location?.coordinates?.join(', ')}]
+                      {job.deliveryAddress && (
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '500', display: 'block', marginTop: '0.15rem' }}>
+                          Address: {job.deliveryAddress}
+                        </span>
+                      )}
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.15rem' }}>
+                        Coordinates: [{job.customer?.location?.coordinates?.join(', ')}]
                       </span>
                     </div>
                   </div>

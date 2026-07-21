@@ -22,6 +22,13 @@ const OrderSchema = new mongoose.Schema({
     default: null 
   },
 
+  // 4. Physical street address snapshot for food delivery
+  deliveryAddress: {
+    type: String,
+    required: true,
+    default: ''
+  },
+
   // 4. Array of items purchased (Takes a snapshot of data at the exact time of purchase)
   items: [{
     menuItemId: { type: String, required: true },

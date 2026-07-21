@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { AddressAutocomplete } from '../components/AddressAutocomplete';
 
 export const CustomerProfileView = () => {
   const { token, user, updateUser } = useContext(AuthContext);
@@ -369,8 +370,19 @@ export const CustomerProfileView = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Street Address</label>
-                <input type="text" className="form-input" placeholder="Apt 4B, 34 Oak Ave, Bangalore" value={address} onChange={(e) => setAddress(e.target.value)} disabled={isSavingProfile} />
+                <label className="form-label">Building / Street Address</label>
+                <AddressAutocomplete
+                  initialAddress={address}
+                  placeholder="Type building or landmark (e.g. Park Ridge Apartments Guntur)..."
+                  onSelectAddress={({ address, latitude, longitude }) => {
+                    setAddress(address);
+                    if (latitude && longitude) {
+                      setLat(latitude);
+                      setLng(longitude);
+                    }
+                  }}
+                  disabled={isSavingProfile}
+                />
               </div>
 
               <div className="form-group">

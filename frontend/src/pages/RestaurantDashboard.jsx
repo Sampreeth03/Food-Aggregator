@@ -1,5 +1,21 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { AddressAutocomplete } from '../components/AddressAutocomplete';
+
+const AVAILABLE_CUISINES = [
+  'North Indian',
+  'South Indian',
+  'Biryani',
+  'Pizza',
+  'Burgers',
+  'Chinese',
+  'Asian',
+  'Fast Food',
+  'Desserts',
+  'Beverages',
+  'Italian',
+  'Healthy Food'
+];
 
 export const RestaurantDashboard = () => {
   const { token, user } = useContext(AuthContext);
@@ -28,11 +44,19 @@ export const RestaurantDashboard = () => {
   // Onboarding Form State
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
-  const [cuisines, setCuisines] = useState('');
+  const [selectedCuisines, setSelectedCuisines] = useState(['North Indian', 'Fast Food']);
   const [lng, setLng] = useState(77.5946);
   const [lat, setLat] = useState(12.9716);
   const [openingTime, setOpeningTime] = useState('09:00');
   const [closingTime, setClosingTime] = useState('22:00');
+
+  const handleCuisineToggle = (c) => {
+    if (selectedCuisines.includes(c)) {
+      setSelectedCuisines(selectedCuisines.filter(item => item !== c));
+    } else {
+      setSelectedCuisines([...selectedCuisines, c]);
+    }
+  };
 
   // Onboarding Menu Items state
   const [onboardMenuItems, setOnboardMenuItems] = useState([
@@ -171,8 +195,8 @@ export const RestaurantDashboard = () => {
   // Onboard restaurant submit
   const handleOnboardSubmit = async (e) => {
     e.preventDefault();
-    if (!name || !address || !cuisines) {
-      setOnboardError('Please fill in restaurant details.');
+    if (!name || !address || selectedCuisines.length === 0) {
+      setOnboardError('Please fill in restaurant details and select at least one cuisine.');
       return;
     }
     if (onboardMenuItems.length === 0) {
@@ -187,7 +211,7 @@ export const RestaurantDashboard = () => {
       const payload = {
         name,
         address,
-        cuisine: cuisines.split(',').map(c => c.trim()),
+        cuisine: selectedCuisines,
         lng: parseFloat(lng),
         lat: parseFloat(lat),
         menu: onboardMenuItems,
@@ -476,27 +500,54 @@ export const RestaurantDashboard = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Street Address</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="12 Main Rd, Koramangala, Bangalore"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
+              <label className="form-label">Building / Street Address</label>
+              <AddressAutocomplete
+                initialAddress={address}
+                placeholder="Search restaurant building or landmark (e.g. Park Ridge Apartments Guntur)..."
+                onSelectAddress={({ address, latitude, longitude }) => {
+                  setAddress(address);
+                  if (latitude && longitude) {
+                    setLat(latitude);
+                    setLng(longitude);
+                  }
+                }}
                 disabled={isSubmittingOnboard}
               />
             </div>
 
             <div className="form-group">
-              <label className="form-label">Cuisines (Comma-separated)</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="North Indian, Chinese, Fast Food"
-                value={cuisines}
-                onChange={(e) => setCuisines(e.target.value)}
-                disabled={isSubmittingOnboard}
-              />
+              <label className="form-label">Select Cuisines (Click to select multiple)</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.35rem' }}>
+                {AVAILABLE_CUISINES.map(c => {
+                  const isChecked = selectedCuisines.includes(c);
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => handleCuisineToggle(c)}
+                      disabled={isSubmittingOnboard}
+                      style={{
+                        padding: '0.4rem 0.8rem',
+                        borderRadius: '20px',
+                        fontSize: '0.8rem',
+                        fontWeight: '600',
+                        border: isChecked ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                        backgroundColor: isChecked ? '#FFEBE6' : '#FFFFFF',
+                        color: isChecked ? 'var(--primary-color)' : 'var(--text-main)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {isChecked ? '✓ ' : '+ '}{c}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedCuisines.length === 0 && (
+                <span style={{ fontSize: '0.75rem', color: '#E53E3E', marginTop: '0.25rem', display: 'block' }}>
+                  Please select at least one cuisine option.
+                </span>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '1rem' }}>

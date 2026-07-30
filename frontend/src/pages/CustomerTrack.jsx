@@ -2,6 +2,30 @@ import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { MapMock } from '../components/MapMock';
 
+const StarRating = ({ value, onChange, disabled }) => {
+  return (
+    <div style={{ display: 'flex', gap: '0.4rem' }}>
+      {[1, 2, 3, 4, 5].map((star) => (
+        <span
+          key={star}
+          onClick={() => !disabled && onChange(star)}
+          style={{
+            fontSize: '1.75rem',
+            cursor: disabled ? 'default' : 'pointer',
+            color: star <= value ? '#FFB800' : '#E2E8F0',
+            transition: 'transform 0.15s ease',
+            display: 'inline-block'
+          }}
+          onMouseEnter={(e) => !disabled && (e.currentTarget.style.transform = 'scale(1.2)')}
+          onMouseLeave={(e) => !disabled && (e.currentTarget.style.transform = 'scale(1)')}
+        >
+          ★
+        </span>
+      ))}
+    </div>
+  );
+};
+
 export const CustomerTrack = ({ pageParams, navigateTo }) => {
   const { token } = useContext(AuthContext);
   const { orderId } = pageParams || {};
@@ -61,6 +85,51 @@ export const CustomerTrack = ({ pageParams, navigateTo }) => {
     const diffMs = new Date(etaTimeStr) - Date.now();
     const diffMins = Math.round(diffMs / (60 * 1000));
     return Math.max(0, diffMins);
+  };
+
+  const [resRating, setResRating] = useState(0);
+  const [riderRatingState, setRiderRatingState] = useState(0);
+  const [submittingRating, setSubmittingRating] = useState(false);
+  const [ratingError, setRatingError] = useState('');
+  const [ratingSuccess, setRatingSuccess] = useState('');
+
+  const handleSubmitRating = async () => {
+    if (resRating === 0 && (!order.rider || riderRatingState === 0)) {
+      setRatingError('Please select a rating for the restaurant and/or delivery partner.');
+      return;
+    }
+    setSubmittingRating(true);
+    setRatingError('');
+    setRatingSuccess('');
+    try {
+      const response = await fetch(`http://localhost:5000/api/orders/${orderId}/rate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          restaurantRating: resRating > 0 ? resRating : null,
+          riderRating: (order.rider && riderRatingState > 0) ? riderRatingState : null
+        })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setRatingSuccess('Thank you! Your ratings have been submitted.');
+        setOrder(prev => ({
+          ...prev,
+          restaurantRating: resRating > 0 ? resRating : prev.restaurantRating,
+          riderRating: (order.rider && riderRatingState > 0) ? riderRatingState : prev.riderRating
+        }));
+      } else {
+        setRatingError(data.msg || 'Failed to submit ratings.');
+      }
+    } catch (err) {
+      console.error(err);
+      setRatingError('Server connection error. Please try again.');
+    } finally {
+      setSubmittingRating(false);
+    }
   };
 
   if (loading) {
@@ -244,10 +313,106 @@ export const CustomerTrack = ({ pageParams, navigateTo }) => {
           <h3 className="title-small">Live Delivery Map</h3>
           <MapMock
             restaurantCoords={order.restaurant?.location?.coordinates}
-            customerCoords={order.customer?.location?.coordinates}
+            customerCoords={order.deliveryLocation?.coordinates || order.customer?.location?.coordinates}
             riderCoords={order.rider && order.riderStatus === 'accepted' ? order.rider?.location?.coordinates : null}
             status={order.status}
           />
+        </div>
+      )}
+
+      {/* Rating Section (only if delivered) */}
+      {order.status === 'delivered' && (
+        <div className="card flex-col gap-4 animate-fade-in" style={{
+          padding: '2rem',
+          border: '1px solid #E6F4EA',
+          backgroundColor: '#F3FAF5',
+          borderRadius: '12px'
+        }}>
+          <h3 className="title-small" style={{ fontSize: '1.2rem', color: '#2E7D32', display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid #E0E0E0', paddingBottom: '0.5rem', margin: 0 }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+            How was your delivery experience?
+          </h3>
+
+          {(order.restaurantRating !== null || order.riderRating !== null) ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <p style={{ color: 'var(--text-main)', fontSize: '0.95rem', fontWeight: '500', margin: 0 }}>
+                Thank you for rating your experience! Here are your submitted ratings:
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem' }}>
+                {order.restaurantRating !== null && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Restaurant Rating:</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <span style={{ color: '#FFB800', fontSize: '1.25rem', letterSpacing: '0.15em' }}>
+                        {'★'.repeat(order.restaurantRating)}{'☆'.repeat(5 - order.restaurantRating)}
+                      </span>
+                      <span style={{ fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-main)' }}>({order.restaurantRating}/5)</span>
+                    </div>
+                  </div>
+                )}
+                {order.riderRating !== null && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Delivery Partner Rating:</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <span style={{ color: '#FFB800', fontSize: '1.25rem', letterSpacing: '0.15em' }}>
+                        {'★'.repeat(order.riderRating)}{'☆'.repeat(5 - order.riderRating)}
+                      </span>
+                      <span style={{ fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-main)' }}>({order.riderRating}/5)</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
+                Your feedback helps us maintain premium quality from our kitchens and delivery partners.
+              </p>
+              
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3rem' }}>
+                {/* Rate Restaurant */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.95rem', fontWeight: '600', color: 'var(--text-main)' }}>
+                    Rate {order.restaurant?.name || 'Restaurant'}
+                  </span>
+                  <StarRating value={resRating} onChange={setResRating} disabled={submittingRating} />
+                </div>
+
+                {/* Rate Rider */}
+                {order.rider && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '0.95rem', fontWeight: '600', color: 'var(--text-main)' }}>
+                      Rate Delivery Partner ({order.rider.name})
+                    </span>
+                    <StarRating value={riderRatingState} onChange={setRiderRatingState} disabled={submittingRating} />
+                  </div>
+                )}
+              </div>
+
+              {ratingError && (
+                <div style={{ color: '#9B2C2C', backgroundColor: '#FED7D7', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.85rem' }}>
+                  {ratingError}
+                </div>
+              )}
+
+              {ratingSuccess && (
+                <div style={{ color: '#22543D', backgroundColor: '#C6F6D5', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.85rem' }}>
+                  {ratingSuccess}
+                </div>
+              )}
+
+              <button
+                className="btn btn-primary"
+                onClick={handleSubmitRating}
+                disabled={submittingRating || (resRating === 0 && (!order.rider || riderRatingState === 0))}
+                style={{ alignSelf: 'flex-start', padding: '0.6rem 1.5rem', fontSize: '0.9rem' }}
+              >
+                {submittingRating ? 'Submitting...' : 'Submit Ratings'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 

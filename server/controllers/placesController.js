@@ -106,6 +106,15 @@ exports.autocomplete = async (req, res) => {
       description: 'DLF Cyber City Towers, Gachibowli, Hyderabad',
       lat: 17.4435,
       lng: 78.3772
+    },
+    {
+      keywords: ['sri city', 'sricity', 'iiit', 'gnan marg', 'thondur', 'satyavedu'],
+      place_id: 'mock_sri_city',
+      main_text: 'IIIT Sri City Campus',
+      secondary_text: '630 Gnan Marg, Thondur, Sri City, Satyavedu, Andhra Pradesh 517646',
+      description: '630, Gnan Marg, Thondur, Sri City, Satyavedu, Andhra Pradesh 517646, India',
+      lat: 13.5284,
+      lng: 80.0248
     }
   ];
 
@@ -210,6 +219,12 @@ exports.getPlaceDetails = async (req, res) => {
       longitude: 78.3772,
       building_name: 'DLF Cyber City Towers',
       full_address: 'DLF Cyber City Towers, Gachibowli, Hyderabad, Telangana 500032, India'
+    },
+    'mock_sri_city': {
+      latitude: 13.5284,
+      longitude: 80.0248,
+      building_name: 'IIIT Sri City Campus',
+      full_address: '630, Gnan Marg, Thondur, Sri City, Satyavedu, Andhra Pradesh 517646, India'
     }
   };
 

@@ -89,10 +89,15 @@ const assignNextRider = async (order) => {
 
       // Calculate ETA
       const customerUser = await User.findById(order.customer);
-      if (customerUser && customerUser.location && customerUser.location.coordinates) {
-        const customerCoords = customerUser.location.coordinates;
+      let customerCoords = null;
+      if (order.deliveryLocation && order.deliveryLocation.coordinates && order.deliveryLocation.coordinates.length === 2) {
+        customerCoords = order.deliveryLocation.coordinates;
+      } else if (customerUser && customerUser.location && customerUser.location.coordinates) {
+        customerCoords = customerUser.location.coordinates;
+      }
+
+      if (customerCoords) {
         const restaurantCoords = restaurant.location.coordinates;
-        
         const matchedRiderUser = nearbyRiders.find(r => r._id.toString() === bestRiderProfile.user.toString());
         const riderCoords = matchedRiderUser ? matchedRiderUser.location.coordinates : null;
 

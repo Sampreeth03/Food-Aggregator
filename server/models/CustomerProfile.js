@@ -19,7 +19,13 @@ const CustomerProfileSchema = new mongoose.Schema({
   favoriteCuisines: { 
     type: [String], 
     default: [] 
-  }
+  },
+  savedAddresses: [{
+    label: { type: String, required: true }, // 'Home', 'Work', 'Other', etc.
+    address: { type: String, required: true },
+    lat: { type: Number, required: true },
+    lng: { type: Number, required: true }
+  }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('CustomerProfile', CustomerProfileSchema);

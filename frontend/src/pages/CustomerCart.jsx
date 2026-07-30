@@ -16,9 +16,16 @@ export const CustomerCart = ({ navigateTo, navigateToParams }) => {
   } = useContext(CartContext);
 
   const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [lat, setLat] = useState(null);
+  const [lng, setLng] = useState(null);
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [addressConfirmed, setAddressConfirmed] = useState(false);
   const [fetchingProfile, setFetchingProfile] = useState(true);
+
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [selectedSavedAddressId, setSelectedSavedAddressId] = useState(null);
+  const [saveAddressCheckbox, setSaveAddressCheckbox] = useState(false);
+  const [saveAddressLabel, setSaveAddressLabel] = useState('Home');
 
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [error, setError] = useState('');
@@ -38,9 +45,28 @@ export const CustomerCart = ({ navigateTo, navigateToParams }) => {
           }
         });
         const data = await response.json();
-        if (response.ok && data.address && data.address.trim()) {
-          setDeliveryAddress(data.address);
-          setAddressConfirmed(true);
+        if (response.ok) {
+          if (data.savedAddresses) {
+            setSavedAddresses(data.savedAddresses);
+          }
+          if (data.address && data.address.trim()) {
+            setDeliveryAddress(data.address);
+            setAddressConfirmed(true);
+            if (data.user?.location?.coordinates && data.user.location.coordinates.length === 2) {
+              setLng(data.user.location.coordinates[0]);
+              setLat(data.user.location.coordinates[1]);
+            }
+            if (data.savedAddresses) {
+              const matched = data.savedAddresses.find(
+                addr => addr.address.trim().toLowerCase() === data.address.trim().toLowerCase()
+              );
+              if (matched) {
+                setSelectedSavedAddressId(matched._id);
+              }
+            }
+          } else {
+            setIsEditingAddress(true);
+          }
         } else {
           setIsEditingAddress(true);
         }
@@ -86,6 +112,10 @@ export const CustomerCart = ({ navigateTo, navigateToParams }) => {
       const payload = {
         restaurantId: cartRestaurant._id,
         deliveryAddress: deliveryAddress.trim(),
+        lat: lat,
+        lng: lng,
+        saveAddress: saveAddressCheckbox,
+        saveAddressLabel: saveAddressLabel,
         items: cartItems.map(item => ({
           menuItemId: item.menuItemId,
           name: item.name,
@@ -298,18 +328,65 @@ export const CustomerCart = ({ navigateTo, navigateToParams }) => {
             {fetchingProfile ? (
               <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading address details...</span>
             ) : isEditingAddress || !deliveryAddress.trim() ? (
-              <form onSubmit={handleConfirmAddress} className="flex-col gap-3">
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              <form onSubmit={handleConfirmAddress} className="flex-col gap-4">
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
                   {!deliveryAddress.trim()
                     ? 'No address found. Please enter your delivery address to place an order:'
                     : 'Modify your delivery address for this order:'}
                 </p>
 
-                <div className="form-group">
+                {savedAddresses.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600' }}>Or select a saved location:</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      {savedAddresses.map(addr => (
+                        <button
+                          key={addr._id}
+                          type="button"
+                          onClick={() => {
+                            setDeliveryAddress(addr.address);
+                            setLat(addr.lat);
+                            setLng(addr.lng);
+                            setSelectedSavedAddressId(addr._id);
+                            setAddressConfirmed(true);
+                            setIsEditingAddress(false);
+                          }}
+                          style={{
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: '8px',
+                            fontSize: '0.8rem',
+                            fontWeight: '600',
+                            border: '1px solid var(--border-color)',
+                            backgroundColor: '#FFFFFF',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.3rem'
+                          }}
+                        >
+                          <span>{addr.label.toLowerCase() === 'home' ? '🏠' : addr.label.toLowerCase() === 'work' ? '💼' : '📍'}</span>
+                          <span>{addr.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="form-group" style={{ margin: 0 }}>
                   <AddressAutocomplete
                     initialAddress={deliveryAddress}
                     placeholder="Search building / apartment / landmark (e.g. Park Ridge Apartments Guntur)..."
-                    onSelectAddress={({ address }) => setDeliveryAddress(address)}
+                    onSelectAddress={({ address, latitude, longitude }) => {
+                      setDeliveryAddress(address);
+                      if (latitude !== undefined && longitude !== undefined && latitude !== null && longitude !== null) {
+                        setLat(latitude);
+                        setLng(longitude);
+                      } else {
+                        setLat(null);
+                        setLng(null);
+                      }
+                      setSelectedSavedAddressId(null); // customized now
+                    }}
                   />
                 </div>
 
@@ -320,7 +397,12 @@ export const CustomerCart = ({ navigateTo, navigateToParams }) => {
                     type="button"
                     className="btn btn-secondary"
                     style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                    onClick={() => setDeliveryAddress('Apt 4B, 34 Oak Ave, MG Road, Bangalore')}
+                    onClick={() => {
+                      setDeliveryAddress('Apt 4B, 34 Oak Ave, MG Road, Bangalore');
+                      setLat(12.9716);
+                      setLng(77.5946);
+                      setSelectedSavedAddressId(null);
+                    }}
                   >
                     Central Bangalore
                   </button>
@@ -328,10 +410,58 @@ export const CustomerCart = ({ navigateTo, navigateToParams }) => {
                     type="button"
                     className="btn btn-secondary"
                     style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                    onClick={() => setDeliveryAddress('Flat 102, Green Glen Layout, Bellandur, Bangalore')}
+                    onClick={() => {
+                      setDeliveryAddress('Flat 102, Green Glen Layout, Bellandur, Bangalore');
+                      setLat(12.9304);
+                      setLng(77.6784);
+                      setSelectedSavedAddressId(null);
+                    }}
                   >
                     Bellandur
                   </button>
+                </div>
+
+                {/* Save Address Options */}
+                <div className="flex-col gap-2" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '0.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <input
+                      type="checkbox"
+                      id="saveAddressCheckbox"
+                      checked={saveAddressCheckbox}
+                      onChange={(e) => setSaveAddressCheckbox(e.target.checked)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <label htmlFor="saveAddressCheckbox" style={{ fontSize: '0.85rem', color: 'var(--text-main)', cursor: 'pointer', fontWeight: '600' }}>
+                      Save address for future orders
+                    </label>
+                  </div>
+
+                  {saveAddressCheckbox && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.25rem' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Save as label:</span>
+                      <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        {['Home', 'Work', 'Other'].map(label => (
+                          <button
+                            key={label}
+                            type="button"
+                            onClick={() => setSaveAddressLabel(label)}
+                            style={{
+                              padding: '0.3rem 0.75rem',
+                              borderRadius: '12px',
+                              fontSize: '0.75rem',
+                              fontWeight: '600',
+                              border: saveAddressLabel === label ? '1.5px solid var(--primary-color)' : '1px solid var(--border-color)',
+                              backgroundColor: saveAddressLabel === label ? '#FFEBE6' : '#FFFFFF',
+                              color: saveAddressLabel === label ? 'var(--primary-color)' : 'var(--text-main)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
@@ -345,23 +475,88 @@ export const CustomerCart = ({ navigateTo, navigateToParams }) => {
                 </div>
               </form>
             ) : (
-              <div className="flex justify-between items-center" style={{ gap: '1rem' }}>
-                <div>
-                  <p style={{ fontSize: '0.95rem', fontWeight: '600', color: 'var(--text-main)', margin: 0 }}>
-                    {deliveryAddress}
-                  </p>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    Your order will be delivered to this location
-                  </span>
+              <div className="flex-col gap-3">
+                {savedAddresses.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    {savedAddresses.map(addr => {
+                      const isSelected = selectedSavedAddressId === addr._id || deliveryAddress === addr.address;
+                      return (
+                        <button
+                          key={addr._id}
+                          type="button"
+                          onClick={() => {
+                            setDeliveryAddress(addr.address);
+                            setLat(addr.lat);
+                            setLng(addr.lng);
+                            setSelectedSavedAddressId(addr._id);
+                            setAddressConfirmed(true);
+                          }}
+                          style={{
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: '8px',
+                            fontSize: '0.8rem',
+                            fontWeight: '600',
+                            border: isSelected ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                            backgroundColor: isSelected ? '#FFEBE6' : '#FFFFFF',
+                            color: isSelected ? 'var(--primary-color)' : 'var(--text-main)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.3rem'
+                          }}
+                        >
+                          <span>{addr.label.toLowerCase() === 'home' ? '🏠' : addr.label.toLowerCase() === 'work' ? '💼' : '📍'}</span>
+                          <span>{addr.label}</span>
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeliveryAddress('');
+                        setLat(null);
+                        setLng(null);
+                        setSelectedSavedAddressId(null);
+                        setIsEditingAddress(true);
+                      }}
+                      style={{
+                        padding: '0.5rem 0.75rem',
+                        borderRadius: '8px',
+                        fontSize: '0.8rem',
+                        fontWeight: '600',
+                        border: '1px dashed var(--border-color)',
+                        backgroundColor: '#FFFFFF',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ➕ New Address
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center" style={{ gap: '1rem', borderTop: savedAddresses.length > 0 ? '1px solid var(--border-color)' : 'none', paddingTop: savedAddresses.length > 0 ? '0.75rem' : '0' }}>
+                  <div>
+                    <p style={{ fontSize: '0.95rem', fontWeight: '600', color: 'var(--text-main)', margin: 0 }}>
+                      {deliveryAddress}
+                    </p>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      Your order will be delivered to this location
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                    onClick={() => {
+                      setIsEditingAddress(true);
+                      setLat(null);
+                      setLng(null);
+                    }}
+                  >
+                    Modify Address
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
-                  onClick={() => setIsEditingAddress(true)}
-                >
-                  Modify Address
-                </button>
               </div>
             )}
           </div>

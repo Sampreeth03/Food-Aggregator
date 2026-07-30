@@ -146,13 +146,26 @@ export const CustomerOrders = ({ navigateToParams }) => {
                     Track Order &rarr;
                   </button>
                 ) : (
-                  <button
-                    className="btn btn-secondary"
-                    style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', width: '100%', marginTop: '1rem' }}
-                    onClick={() => navigateToParams('customer-track', { orderId: order._id })}
-                  >
-                    View Details
-                  </button>
+                  <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem', width: '100%' }}>
+                    {order.status === 'delivered' && (
+                      order.restaurantRating !== null || order.riderRating !== null ? (
+                        <span style={{ fontSize: '0.75rem', color: '#2E7D32', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.15rem' }}>
+                          ✓ Rated
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.75rem', color: '#D69E2E', fontWeight: '600' }}>
+                          ★ Rating Pending
+                        </span>
+                      )
+                    )}
+                    <button
+                      className="btn btn-secondary"
+                      style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', width: '100%' }}
+                      onClick={() => navigateToParams('customer-track', { orderId: order._id })}
+                    >
+                      {order.status === 'delivered' && (order.restaurantRating === null && order.riderRating === null) ? 'Rate Order' : 'View Details'}
+                    </button>
+                  </div>
                 )}
               </div>
 

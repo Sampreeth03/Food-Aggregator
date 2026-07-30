@@ -18,6 +18,12 @@ export const CustomerProfileView = () => {
   const [lng, setLng] = useState(77.5946);
   const [lat, setLat] = useState(12.9716);
 
+  // New saved address state variables
+  const [newSavedAddr, setNewSavedAddr] = useState('');
+  const [newSavedLat, setNewSavedLat] = useState(null);
+  const [newSavedLng, setNewSavedLng] = useState(null);
+  const [newSavedLabel, setNewSavedLabel] = useState('Home');
+
   // Password reset states
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -336,10 +342,140 @@ export const CustomerProfileView = () => {
                 [{profile.user?.location?.coordinates?.join(', ') || '0, 0'}]
               </span>
             </div>
-            <div style={{ display: 'flex', paddingBottom: '0.25rem' }}>
+            <div style={{ display: 'flex', paddingBottom: '0.25rem', borderBottom: '1px solid #F0F4F8', paddingBottom: '0.75rem' }}>
               <span style={{ flex: '0 0 160px', color: 'var(--text-muted)', fontWeight: '500' }}>Password Security</span>
               <span style={{ letterSpacing: '0.15em', fontWeight: 'bold' }}>••••••••</span>
             </div>
+
+            {/* Saved Addresses List */}
+            <div style={{ display: 'flex', flexDirection: 'column', borderBottom: '1px solid #F0F4F8', paddingBottom: '1rem', gap: '0.5rem' }}>
+              <span style={{ color: 'var(--text-muted)', fontWeight: '500' }}>Saved Delivery Locations ({profile.savedAddresses?.length || 0})</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {profile.savedAddresses && profile.savedAddresses.length > 0 ? (
+                  profile.savedAddresses.map(addr => (
+                    <div key={addr._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FAFAFA', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', flex: 1, paddingRight: '1rem' }}>
+                        <span style={{ fontWeight: '700', fontSize: '0.85rem' }}>
+                          {addr.label.toLowerCase() === 'home' ? '🏠' : addr.label.toLowerCase() === 'work' ? '💼' : '📍'} {addr.label}
+                        </span>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{addr.address}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const updatedSaved = profile.savedAddresses.filter(a => a._id !== addr._id).map(a => ({
+                            label: a.label,
+                            address: a.address,
+                            lat: a.lat,
+                            lng: a.lng
+                          }));
+                          try {
+                            const res = await fetch('http://localhost:5000/api/customers/profile', {
+                              method: 'PUT',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                              },
+                              body: JSON.stringify({ savedAddresses: updatedSaved })
+                            });
+                            const data = await res.json();
+                            if (res.ok) {
+                              setProfile(data.profile);
+                            }
+                          } catch (e) {
+                            console.error(e);
+                          }
+                        }}
+                        style={{ background: 'none', border: 'none', color: '#E53E3E', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.85rem' }}>No saved addresses yet. Add one below.</span>
+                )}
+              </div>
+            </div>
+
+            {/* Add Saved Address inline form */}
+            <div className="flex-col gap-3" style={{ paddingTop: '0.5rem' }}>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: '700', margin: 0 }}>Add New Saved Location</h4>
+              <div className="form-group" style={{ margin: 0 }}>
+                <AddressAutocomplete
+                  placeholder="Type landmark, building name or area..."
+                  onSelectAddress={({ address, latitude, longitude }) => {
+                    setNewSavedAddr(address);
+                    if (latitude && longitude) {
+                      setNewSavedLat(latitude);
+                      setNewSavedLng(longitude);
+                    }
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Label:</span>
+                {['Home', 'Work', 'Other'].map(label => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => setNewSavedLabel(label)}
+                    style={{
+                      padding: '0.25rem 0.5rem',
+                      borderRadius: '8px',
+                      fontSize: '0.75rem',
+                      fontWeight: '600',
+                      border: newSavedLabel === label ? '1.5px solid var(--primary-color)' : '1px solid var(--border-color)',
+                      backgroundColor: newSavedLabel === label ? '#FFEBE6' : '#FFFFFF',
+                      color: newSavedLabel === label ? 'var(--primary-color)' : 'var(--text-main)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!newSavedAddr.trim() || !newSavedLat || !newSavedLng) return;
+                    const updatedSaved = [
+                      ...(profile.savedAddresses || []).map(a => ({
+                        label: a.label,
+                        address: a.address,
+                        lat: a.lat,
+                        lng: a.lng
+                      })),
+                      { label: newSavedLabel, address: newSavedAddr, lat: newSavedLat, lng: newSavedLng }
+                    ];
+                    try {
+                      const res = await fetch('http://localhost:5000/api/customers/profile', {
+                        method: 'PUT',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ savedAddresses: updatedSaved })
+                      });
+                      const data = await res.json();
+                      if (res.ok) {
+                        setProfile(data.profile);
+                        setNewSavedAddr('');
+                        setNewSavedLat(null);
+                        setNewSavedLng(null);
+                      }
+                    } catch (e) {
+                      console.error(e);
+                    }
+                  }}
+                  disabled={!newSavedAddr.trim() || !newSavedLat || !newSavedLng}
+                  className="btn btn-primary"
+                  style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', marginLeft: 'auto' }}
+                >
+                  Add Address
+                </button>
+              </div>
+            </div>
+
           </div>
         )}
 

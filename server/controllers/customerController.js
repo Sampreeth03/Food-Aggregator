@@ -40,6 +40,9 @@ exports.updateCustomerProfile = async (req, res) => {
     profile.phone = phone !== undefined ? phone : profile.phone;
     profile.address = address !== undefined ? address : profile.address;
     profile.favoriteCuisines = favoriteCuisines !== undefined ? favoriteCuisines : profile.favoriteCuisines;
+    if (req.body.savedAddresses !== undefined) {
+      profile.savedAddresses = req.body.savedAddresses;
+    }
     await profile.save();
 
     // Sync changes to the User document (Name and Location Coordinates)

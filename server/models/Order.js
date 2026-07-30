@@ -28,6 +28,10 @@ const OrderSchema = new mongoose.Schema({
     required: true,
     default: ''
   },
+  deliveryLocation: {
+    type: { type: String, default: 'Point' },
+    coordinates: { type: [Number] } // [lng, lat]
+  },
 
   // 4. Array of items purchased (Takes a snapshot of data at the exact time of purchase)
   items: [{
@@ -79,7 +83,15 @@ const OrderSchema = new mongoose.Schema({
   rejectedRiders: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
-  }]
+  }],
+  restaurantRating: {
+    type: Number,
+    default: null
+  },
+  riderRating: {
+    type: Number,
+    default: null
+  }
 }, { timestamps: true }); // Automatically creates 'createdAt' and 'updatedAt' fields
 
 module.exports = mongoose.model('Order', OrderSchema);

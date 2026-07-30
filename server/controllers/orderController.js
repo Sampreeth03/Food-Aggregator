@@ -1,3 +1,5 @@
+const mongoose = require('mongoose');
+const https = require('https');
 const Order = require('../models/Order');
 const Restaurant = require('../models/Restaurant');
 const RiderProfile = require('../models/RiderProfile');
@@ -48,10 +50,38 @@ const checkAndProcessRiderTimeouts = async () => {
   }
 };
 
+// Helper to dynamically geocode any address string using the Google Places Text Search API
+const geocodeAddress = async (address) => {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey || apiKey === 'YOUR_GOOGLE_MAPS_API_KEY_HERE') {
+    return null;
+  }
+  return new Promise((resolve) => {
+    const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(address)}&key=${apiKey}`;
+    https.get(url, (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.status === 'OK' && parsed.results && parsed.results.length > 0) {
+            const loc = parsed.results[0].geometry.location;
+            resolve([parseFloat(loc.lng), parseFloat(loc.lat)]);
+          } else {
+            resolve(null);
+          }
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    }).on('error', () => resolve(null));
+  });
+};
+
 // 1. Place a new order (Strictly for customers)
 exports.placeOrder = async (req, res) => {
   const customerId = req.user.id; 
-  const { restaurantId, items, deliveryAddress, address } = req.body;
+  const { restaurantId, items, deliveryAddress, address, lat, lng, saveAddress, saveAddressLabel } = req.body;
 
   try {
     let finalAddress = (deliveryAddress || address || '').trim();
@@ -70,16 +100,85 @@ exports.placeOrder = async (req, res) => {
       });
     }
 
-    // Update customer profile address for future orders
+    // STEP 1: Coordinate Resolution & Validation (moved to top)
+    let finalCoordinates = null;
+
+    // Check if the coordinates passed by the client are the corrupt profile coordinates [10.5, 23.5]
+    if (lat !== undefined && lng !== undefined && lat !== null && lng !== null) {
+      if (parseFloat(lat) === 23.5 && parseFloat(lng) === 10.5) {
+        // Corrupt coordinates - trigger geocoder lookup
+      } else {
+        finalCoordinates = [parseFloat(lng), parseFloat(lat)];
+      }
+    }
+
+    if (!finalCoordinates) {
+      // Try to dynamically geocode the custom address string using Places Text Search API
+      const geocoded = await geocodeAddress(finalAddress);
+      if (geocoded) {
+        finalCoordinates = geocoded;
+      } else {
+        // Fall back to profile coordinates only if they are not the corrupt mock coordinates [10.5, 23.5]
+        const profileDoc = await CustomerProfile.findOne({ user: customerId });
+        if (profileDoc && profileDoc.address && profileDoc.address.trim().toLowerCase() === finalAddress.toLowerCase()) {
+          const customerUser = await User.findById(customerId);
+          if (customerUser && customerUser.location && customerUser.location.coordinates) {
+            const userCoords = customerUser.location.coordinates;
+            if (userCoords[0] !== 10.5 || userCoords[1] !== 23.5) {
+              finalCoordinates = userCoords;
+            }
+          }
+        }
+      }
+    }
+
+    if (!finalCoordinates || !Array.isArray(finalCoordinates) || finalCoordinates.length !== 2 || isNaN(finalCoordinates[0]) || isNaN(finalCoordinates[1])) {
+      return res.status(400).json({
+        msg: 'Unable to resolve precise coordinates for the entered address. Please select a valid building or landmark from the search autocomplete suggestions dropdown to place your order.'
+      });
+    }
+
+    // STEP 2: Update Customer Profile & User coordinates with resolved coordinates
     let customerProfile = await CustomerProfile.findOne({ user: customerId });
     if (customerProfile) {
       customerProfile.address = finalAddress;
+      // Handle appending to savedAddresses list if requested
+      if (saveAddress && saveAddressLabel) {
+        customerProfile.savedAddresses = customerProfile.savedAddresses.filter(
+          addr => addr.label.toLowerCase() !== saveAddressLabel.trim().toLowerCase()
+        );
+        customerProfile.savedAddresses.push({
+          label: saveAddressLabel.trim(),
+          address: finalAddress,
+          lat: finalCoordinates[1], // Latitude
+          lng: finalCoordinates[0]  // Longitude
+        });
+      }
       await customerProfile.save();
     } else {
-      await CustomerProfile.create({
+      const newProfileData = {
         user: customerId,
         address: finalAddress
-      });
+      };
+      if (saveAddress && saveAddressLabel) {
+        newProfileData.savedAddresses = [{
+          label: saveAddressLabel.trim(),
+          address: finalAddress,
+          lat: finalCoordinates[1],
+          lng: finalCoordinates[0]
+        }];
+      }
+      customerProfile = await CustomerProfile.create(newProfileData);
+    }
+
+    // Sync updated coordinates to User document
+    const userDoc = await User.findById(customerId);
+    if (userDoc) {
+      userDoc.location = {
+        type: 'Point',
+        coordinates: finalCoordinates
+      };
+      await userDoc.save();
     }
 
     const restaurant = await Restaurant.findById(restaurantId);
@@ -133,15 +232,21 @@ exports.placeOrder = async (req, res) => {
       });
     }
 
-    const newOrder = await Order.create({
+    const orderData = {
       customer: customerId,
       restaurant: restaurantId,
       deliveryAddress: finalAddress,
       items: orderItemsSnapshot,
       totalAmount: totalAmount,
       status: 'placed',
-      paymentStatus: 'pending'
-    });
+      paymentStatus: 'pending',
+      deliveryLocation: {
+        type: 'Point',
+        coordinates: finalCoordinates
+      }
+    };
+
+    const newOrder = await Order.create(orderData);
 
     res.status(201).json({
       msg: 'Order placed successfully. Awaiting payment processing.',
@@ -328,6 +433,84 @@ exports.rejectDispatch = async (req, res) => {
     await order.save();
 
     res.status(200).json({ msg: 'Dispatch request rejected. Searching for another delivery partner.', order });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+};
+
+// 8. Rate restaurant and rider for a delivered order
+exports.rateOrder = async (req, res) => {
+  const { orderId } = req.params;
+  const { restaurantRating, riderRating } = req.body;
+  const customerId = req.user.id;
+
+  if (restaurantRating === undefined && riderRating === undefined) {
+    return res.status(400).json({ msg: 'Please provide at least one rating (restaurant or rider).' });
+  }
+
+  // Helper validation for rating value (1 to 5)
+  const isValidRating = (val) => {
+    if (val === undefined || val === null) return true; // optional
+    const num = Number(val);
+    return !isNaN(num) && num >= 1 && num <= 5;
+  };
+
+  if (!isValidRating(restaurantRating) || !isValidRating(riderRating)) {
+    return res.status(400).json({ msg: 'Ratings must be numbers between 1 and 5.' });
+  }
+
+  try {
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ msg: 'Order not found' });
+    }
+
+    // Verify this is the customer who placed the order
+    if (order.customer.toString() !== customerId) {
+      return res.status(403).json({ msg: 'You are not authorized to rate this order' });
+    }
+
+    // Verify order is delivered
+    if (order.status !== 'delivered') {
+      return res.status(400).json({ msg: 'You can only rate an order after it has been delivered' });
+    }
+
+    // Update ratings on order
+    if (restaurantRating !== undefined && restaurantRating !== null) {
+      order.restaurantRating = Number(restaurantRating);
+    }
+    if (riderRating !== undefined && riderRating !== null) {
+      order.riderRating = Number(riderRating);
+    }
+
+    await order.save();
+
+    // Recalculate average rating for the Restaurant
+    if (restaurantRating !== undefined && restaurantRating !== null) {
+      const restaurantStats = await Order.aggregate([
+        { $match: { restaurant: new mongoose.Types.ObjectId(order.restaurant), restaurantRating: { $ne: null } } },
+        { $group: { _id: null, avgRating: { $avg: '$restaurantRating' } } }
+      ]);
+      if (restaurantStats.length > 0) {
+        const newRestaurantRating = parseFloat(restaurantStats[0].avgRating.toFixed(1));
+        await Restaurant.findByIdAndUpdate(order.restaurant, { rating: newRestaurantRating });
+      }
+    }
+
+    // Recalculate average rating for the Rider
+    if (order.rider && riderRating !== undefined && riderRating !== null) {
+      const riderStats = await Order.aggregate([
+        { $match: { rider: new mongoose.Types.ObjectId(order.rider), riderRating: { $ne: null } } },
+        { $group: { _id: null, avgRating: { $avg: '$riderRating' } } }
+      ]);
+      if (riderStats.length > 0) {
+        const newRiderRating = parseFloat(riderStats[0].avgRating.toFixed(1));
+        await RiderProfile.findOneAndUpdate({ user: order.rider }, { rating: newRiderRating });
+      }
+    }
+
+    res.status(200).json({ msg: 'Ratings submitted successfully', order });
   } catch (err) {
     console.error(err);
     res.status(500).send('Server Error');

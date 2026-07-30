@@ -336,7 +336,7 @@ export const RiderOrdersView = ({ navigateTo }) => {
                         </span>
                       )}
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.15rem' }}>
-                        Coordinates: [{job.customer?.location?.coordinates?.join(', ')}]
+                        Coordinates: [{job.deliveryLocation?.coordinates?.join(', ') || job.customer?.location?.coordinates?.join(', ')}]
                       </span>
                     </div>
                   </div>

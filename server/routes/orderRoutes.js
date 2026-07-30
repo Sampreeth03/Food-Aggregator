@@ -7,7 +7,8 @@ const {
   getRiderOrders, 
   updateRiderOrderStatus,
   acceptDispatch,
-  rejectDispatch
+  rejectDispatch,
+  rateOrder
 } = require('../controllers/orderController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const { orderLimiter } = require('../middleware/rateLimiter');
@@ -32,5 +33,8 @@ router.put('/:orderId/accept-dispatch', protect, authorize('rider'), acceptDispa
 
 // PUT /api/orders/:orderId/reject-dispatch -> Reject incoming delivery dispatch request
 router.put('/:orderId/reject-dispatch', protect, authorize('rider'), rejectDispatch);
+
+// POST /api/orders/:orderId/rate -> Rate restaurant and rider for a delivered order
+router.post('/:orderId/rate', protect, authorize('customer'), rateOrder);
 
 module.exports = router;

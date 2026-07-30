@@ -27,7 +27,7 @@ const getRestaurantCover = (rest) => {
 
 export const CustomerHome = ({ navigateTo }) => {
   const { token, user } = useContext(AuthContext);
-  const { addToCart, cartRestaurant } = useContext(CartContext);
+  const { addToCart, cartRestaurant, getCartCount, getCartTotal } = useContext(CartContext);
 
   const [restaurants, setRestaurants] = useState([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
@@ -110,7 +110,7 @@ export const CustomerHome = ({ navigateTo }) => {
   }
 
   return (
-    <div className="flex-col gap-6 animate-fade-in">
+    <div className="flex-col gap-6 animate-fade-in" style={{ paddingBottom: getCartCount() > 0 ? '90px' : '0' }}>
       
       {/* View Menu Mode */}
       {selectedRestaurant ? (
@@ -177,7 +177,7 @@ export const CustomerHome = ({ navigateTo }) => {
                           gap: '0.3rem'
                         }}>
                           <StarIcon size={13} color="#FFFFFF" />
-                          {selectedRestaurant.rating || '4.2'}
+                          {typeof selectedRestaurant.rating === 'number' ? selectedRestaurant.rating.toFixed(1) : (selectedRestaurant.rating || '4.2')}
                         </span>
                         <span className={`badge ${isOpen ? 'badge-success' : 'badge-danger'}`}>
                           {isOpen ? 'Open Now' : 'Closed'}
@@ -412,7 +412,7 @@ export const CustomerHome = ({ navigateTo }) => {
                         boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
                       }}>
                         <StarIcon size={12} color="#FFFFFF" />
-                        {rest.rating || '4.2'}
+                        {typeof rest.rating === 'number' ? rest.rating.toFixed(1) : (rest.rating || '4.2')}
                       </div>
                     </div>
 
@@ -456,6 +456,73 @@ export const CustomerHome = ({ navigateTo }) => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Floating Bottom Cart Bar */}
+      {getCartCount() > 0 && (
+        <div style={{
+          position: 'fixed',
+          bottom: '0',
+          left: '0',
+          width: '100%',
+          backgroundColor: '#2E7D32', // Premium green
+          color: '#FFFFFF',
+          padding: '1.25rem 2.5rem',
+          boxShadow: '0 -4px 16px rgba(0, 0, 0, 0.15)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          zIndex: 1000,
+          animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+        }}>
+          {/* Keyframe animation injected inline */}
+          <style>{`
+            @keyframes slideUp {
+              from { transform: translateY(100%); opacity: 0; }
+              to { transform: translateY(0); opacity: 1; }
+            }
+          `}</style>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.9 }}>
+              {getCartCount()} {getCartCount() === 1 ? 'Item' : 'Items'} added
+            </span>
+            <span style={{ fontSize: '1.1rem', fontWeight: '800' }}>
+              ₹{getCartTotal()} <span style={{ fontSize: '0.8rem', fontWeight: 'normal', opacity: 0.8 }}>plus taxes</span>
+            </span>
+          </div>
+
+          <button 
+            onClick={() => navigateTo('customer-cart')}
+            style={{
+              backgroundColor: '#FFFFFF',
+              color: '#2E7D32',
+              border: 'none',
+              padding: '0.6rem 1.25rem',
+              borderRadius: '8px',
+              fontWeight: '700',
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#F5F5F5';
+              e.currentTarget.style.transform = 'scale(1.03)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#FFFFFF';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+          >
+            Go to Cart
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
       )}
     </div>

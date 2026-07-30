@@ -15,6 +15,11 @@ import { RiderProfileView } from './pages/RiderProfile';
 import { RiderOrdersView } from './pages/RiderOrders';
 import { RiderDashboardView } from './pages/RiderDashboard';
 import { CustomerProfileView } from './pages/CustomerProfile';
+import { AdminDashboard } from './pages/AdminDashboard';
+import { AdminCustomers } from './pages/AdminCustomers';
+import { AdminRestaurants } from './pages/AdminRestaurants';
+import { AdminRiders } from './pages/AdminRiders';
+import { AdminOrders } from './pages/AdminOrders';
 
 function AppContent() {
   const { user, loading } = useContext(AuthContext);
@@ -41,14 +46,26 @@ function AppContent() {
     if (!user && !isPublic) {
       // If not logged in and trying to access private page, redirect to landing
       setCurrentPage('landing');
-    } else if (user && isPublic) {
-      // If logged in and trying to access landing/login/register, redirect to role dashboard
-      if (user.role === 'customer') {
-        setCurrentPage('customer-home');
-      } else if (user.role === 'restaurant') {
-        setCurrentPage('restaurant-dashboard');
-      } else if (user.role === 'rider') {
-        setCurrentPage('rider-orders');
+    } else if (user) {
+      if (isPublic) {
+        // Redirect to role dashboard if trying to access public page
+        if (user.role === 'customer') {
+          setCurrentPage('customer-home');
+        } else if (user.role === 'restaurant') {
+          setCurrentPage('restaurant-dashboard');
+        } else if (user.role === 'rider') {
+          setCurrentPage('rider-orders');
+        } else if (user.role === 'admin') {
+          setCurrentPage('admin-dashboard');
+        }
+      } else {
+        // If logged in and accessing a private page, restrict cross-role access
+        const isPageAdmin = currentPage.startsWith('admin-');
+        if (isPageAdmin && user.role !== 'admin') {
+          setCurrentPage(user.role === 'customer' ? 'customer-home' : user.role === 'restaurant' ? 'restaurant-dashboard' : 'rider-orders');
+        } else if (!isPageAdmin && user.role === 'admin') {
+          setCurrentPage('admin-dashboard');
+        }
       }
     }
   }, [user, loading, currentPage]);
@@ -87,6 +104,16 @@ function AppContent() {
         return <RiderDashboardView />;
       case 'rider-orders':
         return <RiderOrdersView navigateTo={navigateTo} />;
+      case 'admin-dashboard':
+        return <AdminDashboard navigateTo={navigateTo} />;
+      case 'admin-customers':
+        return <AdminCustomers />;
+      case 'admin-restaurants':
+        return <AdminRestaurants />;
+      case 'admin-riders':
+        return <AdminRiders />;
+      case 'admin-orders':
+        return <AdminOrders />;
       default:
         return <LandingPage navigateTo={navigateTo} />;
     }

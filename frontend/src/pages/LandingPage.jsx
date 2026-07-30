@@ -9,38 +9,38 @@ export const LandingPage = ({ navigateTo }) => {
 
   const stats = [
     { label: 'Average Delivery Time', value: '12 Mins' },
-    { label: 'Happy Customers served', value: '500K+' },
+    { label: 'Happy Diners Served', value: '500K+' },
     { label: 'Hot & Fresh Delivery', value: '99.9%' },
-    { label: 'Local Kitchen Partners', value: '1,200+' }
+    { label: 'Local Restaurant Partners', value: '1,200+' }
   ];
 
   const features = [
     {
-      title: 'Always Hot & Fresh',
-      desc: 'We optimize every delivery path so your food spends less time in transit and arrives at your door just as the chef intended—fresh, hot, and delicious.'
+      title: 'Cooked by Culinary Experts',
+      desc: 'We partner with the finest local kitchens and restaurants to bring you delicious, chef-crafted meals made from fresh, premium ingredients.'
     },
     {
-      title: 'Matched Instantly',
-      desc: 'The moment your meal is ready at the kitchen, a local delivery partner is already waiting at the counter, ensuring zero delays in getting your meal to you.'
+      title: 'Direct Hot-Box Delivery',
+      desc: 'Our delivery network is optimized to ensure your food spends minimal time in transit and arrives piping hot in specialized temperature-insulated bags.'
     },
     {
-      title: 'Safe & Secure Handover',
-      desc: 'Your peace of mind is our priority. Every order is verified at your doorstep using a secure 4-digit code, ensuring your meal goes directly to you.'
+      title: 'Effortless Ordering Experience',
+      desc: 'Enjoy a sleek, zero-hassle checkout process, save multiple favorite addresses for quick selection, and get your food exactly where you want it.'
     }
   ];
 
   const partners = [
     {
-      title: 'Share Your Cooking',
+      title: 'Grow Your Culinary Business',
       subtitle: 'For Restaurants',
-      desc: 'Partner with BiteSpeed to list your specialty menus, manage incoming orders with ease, track your kitchen performance, and delight hungry customers nearby.',
+      desc: 'Reach thousands of hungry diners. List your specialty menus, manage incoming orders with ease, track performance, and delight local food lovers.',
       btnText: 'Register Restaurant',
       action: () => navigateTo('register')
     },
     {
-      title: 'Deliver and Earn',
-      subtitle: 'For Couriers',
-      desc: 'Deliver hot meals using your bicycle, scooter, or bike. Choose your own flexible schedule, accept delivery orders close to you, and secure daily payouts.',
+      title: 'Share the Joy of Good Food',
+      subtitle: 'For Riders',
+      desc: 'Enjoy flexible earning opportunities. Deliver delicious meals on your own schedule using your bicycle, scooter, or motorcycle with daily payouts.',
       btnText: 'Join as Rider',
       action: () => navigateTo('register')
     }
@@ -48,25 +48,53 @@ export const LandingPage = ({ navigateTo }) => {
 
   const faqs = [
     {
-      q: 'How do you guarantee my food arrives hot?',
-      a: 'We monitor preparation times and coordinate with delivery partners to ensure they arrive at the restaurant just as your order is packaged. This minimizes kitchen counter wait times.'
+      q: 'How do you guarantee my food arrives hot and fresh?',
+      a: 'Our riders use premium insulated thermal bags. We also schedule dispatches dynamically so that a rider is matched exactly when the kitchen finishes preparing your food.'
     },
     {
       q: 'Can I order from multiple restaurants at once?',
-      a: 'To guarantee speed and food quality, we route orders individually. You can place separate orders if you wish to enjoy meals from different kitchens.'
+      a: 'To guarantee speed and food quality, we route orders individually. You can place separate orders if you wish to enjoy meals from different restaurants.'
     },
     {
-      q: 'How do I track my active order?',
-      a: 'Once the restaurant begins cooking, you can view your live tracking dashboard. It shows exactly which step your meal is in and counts down the minutes to arrival.'
+      q: 'Is there a way to save my home and office addresses?',
+      a: 'Yes! You can save multiple delivery addresses with custom labels (like Home, Work, or Other) during checkout or directly in your profile for instant one-click selection.'
     }
   ];
 
   return (
-    <div className="flex-col animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '6rem', paddingBottom: '4rem' }}>
+    <div className="flex-col" style={{ display: 'flex', flexDirection: 'column', gap: '6rem', paddingBottom: '4rem' }}>
+      <style>{`
+        @keyframes slideInLeft {
+          from {
+            transform: translateX(-60px);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        @keyframes slideInRight {
+          from {
+            transform: translateX(60px);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        .slide-left-animated {
+          animation: slideInLeft 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .slide-right-animated {
+          animation: slideInRight 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+      `}</style>
       
       {/* Hero Section */}
       <section className="flex items-center justify-between" style={{ display: 'flex', flexWrap: 'wrap', gap: '4rem', padding: '4rem 0 2rem' }}>
-        <div style={{ flex: '1 1 500px', display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+        <div className="slide-left-animated" style={{ flex: '1 1 500px', display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
           <span style={{
             backgroundColor: '#FFEBE6',
             color: 'var(--primary-color)',
@@ -78,16 +106,16 @@ export const LandingPage = ({ navigateTo }) => {
             textTransform: 'uppercase',
             letterSpacing: '0.08em'
           }}>
-            ⚡ Ultra Fast Delivery Platform
+            ⚡ Gourmet Food Delivered Hot
           </span>
           <h1 className="title-large" style={{ fontSize: '3.6rem', lineHeight: '1.1', fontWeight: '800', letterSpacing: '-0.02em' }}>
-            Fresh food from local kitchens, <br />
+            Delectable dishes from local kitchens, <br />
             <span style={{ color: 'var(--primary-color)', position: 'relative' }}>
-              delivered to your door.
+              delivered to your table.
             </span>
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '1.15rem', maxWidth: '560px', lineHeight: '1.7' }}>
-            Satisfy your cravings with hyper-local menus, custom building coordinates, and watch your delivery partner arrive live on our interactive tracking map.
+            Savor the best local flavors with curated specialty menus and direct hot-box deliveries. Order gourmet pizzas, clay-pot biryanis, flame-grilled burgers, and rich desserts in just a few taps.
           </p>
           <div className="flex gap-4" style={{ marginTop: '0.75rem' }}>
             <button 
@@ -110,7 +138,7 @@ export const LandingPage = ({ navigateTo }) => {
                 e.currentTarget.style.boxShadow = '0 4px 14px rgba(255, 87, 34, 0.3)';
               }}
             >
-              Get Started
+              Order Now
             </button>
             <button 
               className="btn btn-secondary" 
@@ -135,52 +163,41 @@ export const LandingPage = ({ navigateTo }) => {
           </div>
         </div>
 
-        {/* Hero Illustration / Mockup Card */}
-        <div style={{ flex: '1 1 400px', display: 'flex', justifyContent: 'center' }}>
+        {/* Hero Food Image Container */}
+        <div className="slide-right-animated" style={{ flex: '1 1 400px', display: 'flex', justifyContent: 'center' }}>
           <div style={{
             position: 'relative',
             width: '100%',
             maxWidth: '460px',
             borderRadius: '24px',
             overflow: 'hidden',
-            backgroundColor: '#FFFFFF',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.12)',
             border: '1px solid var(--border-color)',
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.06)'
-          }}>
-            <div style={{ backgroundColor: '#FFFFFF', padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#E53E3E' }}></span>
-                <span style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-main)' }}>Live Tracker Mockup</span>
-              </div>
-              <span className="badge badge-success" style={{ fontSize: '0.7rem', padding: '0.25rem 0.6rem' }}>In Transit</span>
-            </div>
-            
-            <div style={{ flex: 1, backgroundColor: '#FAFBFC', padding: '2rem 1.75rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', backgroundColor: '#FFFFFF', padding: '1rem', borderRadius: '14px', border: '1px solid var(--border-color)', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
-                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--primary-color)' }} />
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', fontWeight: '700' }}>Step 1: Preparing</span>
-                  <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-main)' }}>Restaurant is packing your meal</span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', backgroundColor: '#FFFFFF', padding: '1rem', borderRadius: '14px', border: '1px solid var(--border-color)', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
-                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--secondary-success)' }} />
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', fontWeight: '700' }}>Step 2: On The Way</span>
-                  <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-main)' }}>Rider is navigating to your rooftop</span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', backgroundColor: '#FFFFFF', padding: '1rem', borderRadius: '14px', border: '1px solid var(--border-color)', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
-                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#2B6CB0' }} />
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', fontWeight: '700' }}>Step 3: Secure Handover</span>
-                  <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-main)' }}>Confirm delivery with your 4-digit code</span>
-                </div>
-              </div>
+            transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'scale(1.03) translateY(-5px)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1) translateY(0)';
+          }}
+          >
+            <img 
+              src="/images/hero_food.jpg" 
+              alt="Steaming Hot Gourmet Food Selection" 
+              style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover' }}
+            />
+            <div style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)',
+              padding: '2rem 1.5rem',
+              color: '#FFFFFF'
+            }}>
+              <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800' }}>Taste the Passion</h3>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: 'rgba(255,255,255,0.8)' }}>Freshly made, hot & bursting with rich flavors.</p>
             </div>
           </div>
         </div>

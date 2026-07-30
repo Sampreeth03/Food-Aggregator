@@ -133,6 +133,8 @@ export const Register = ({ navigateTo }) => {
         navigateTo('restaurant-dashboard');
       } else if (user.role === 'rider') {
         navigateTo('rider-orders');
+      } else if (user.role === 'admin') {
+        navigateTo('admin-dashboard');
       }
     } catch (err) {
       setError(err.message || 'Registration failed. Try a different email.');

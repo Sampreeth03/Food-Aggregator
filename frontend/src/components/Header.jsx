@@ -13,7 +13,7 @@ export const Header = ({ currentPage, navigateTo }) => {
 
   return (
     <header className="navbar">
-      <div className="nav-logo" onClick={() => navigateTo(user ? (user.role === 'customer' ? 'customer-home' : user.role === 'restaurant' ? 'restaurant-dashboard' : 'rider-orders') : 'landing')}>
+      <div className="nav-logo" onClick={() => navigateTo(user ? (user.role === 'customer' ? 'customer-home' : user.role === 'restaurant' ? 'restaurant-dashboard' : user.role === 'admin' ? 'admin-dashboard' : 'rider-orders') : 'landing')}>
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--primary-color)' }}>
           <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
         </svg>
@@ -83,6 +83,26 @@ export const Header = ({ currentPage, navigateTo }) => {
             </span>
             <span className={`nav-link ${currentPage === 'rider-profile' ? 'active' : ''}`} onClick={() => navigateTo('rider-profile')}>
               Rider Profile
+            </span>
+          </>
+        )}
+
+        {user && user.role === 'admin' && (
+          <>
+            <span className={`nav-link ${currentPage === 'admin-dashboard' ? 'active' : ''}`} onClick={() => navigateTo('admin-dashboard')}>
+              Admin Panel
+            </span>
+            <span className={`nav-link ${currentPage === 'admin-customers' ? 'active' : ''}`} onClick={() => navigateTo('admin-customers')}>
+              Customers
+            </span>
+            <span className={`nav-link ${currentPage === 'admin-restaurants' ? 'active' : ''}`} onClick={() => navigateTo('admin-restaurants')}>
+              Restaurants
+            </span>
+            <span className={`nav-link ${currentPage === 'admin-riders' ? 'active' : ''}`} onClick={() => navigateTo('admin-riders')}>
+              Riders
+            </span>
+            <span className={`nav-link ${currentPage === 'admin-orders' ? 'active' : ''}`} onClick={() => navigateTo('admin-orders')}>
+              Orders
             </span>
           </>
         )}

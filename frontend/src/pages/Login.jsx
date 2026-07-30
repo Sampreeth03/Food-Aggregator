@@ -26,6 +26,8 @@ export const Login = ({ navigateTo }) => {
         navigateTo('restaurant-dashboard');
       } else if (user.role === 'rider') {
         navigateTo('rider-orders');
+      } else if (user.role === 'admin') {
+        navigateTo('admin-dashboard');
       }
     } catch (err) {
       setError(err.message || 'Invalid credentials. Please try again.');

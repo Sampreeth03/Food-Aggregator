@@ -4,7 +4,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const crypto = require('crypto');
-process.env.JWT_SECRET = crypto.randomBytes(64).toString('hex');
+process.env.JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(64).toString('hex');
 
 const app = express();
 connectDB();

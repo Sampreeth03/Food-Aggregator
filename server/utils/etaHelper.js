@@ -69,9 +69,50 @@ const calculateTotalETA = async (riderCoords, restaurantCoords, customerCoords, 
   return Math.round(totalETAMinutes);
 };
 
+// 5. Linear interpolation along a path of coordinates [lng, lat] by ratio (0 to 1)
+const getPointAtRatio = (coords, ratio) => {
+  if (!coords || coords.length === 0) return null;
+  if (coords.length === 1) return coords[0];
+  if (ratio <= 0) return coords[0];
+  if (ratio >= 1) return coords[coords.length - 1];
+
+  const segments = [];
+  let totalLength = 0;
+  for (let i = 0; i < coords.length - 1; i++) {
+    const p1 = coords[i];
+    const p2 = coords[i + 1];
+    const dx = p2[0] - p1[0];
+    const dy = p2[1] - p1[1];
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    segments.push(dist);
+    totalLength += dist;
+  }
+
+  if (totalLength === 0) return coords[0];
+
+  const targetDist = totalLength * ratio;
+  let accumulatedDist = 0;
+
+  for (let i = 0; i < segments.length; i++) {
+    const segLength = segments[i];
+    if (accumulatedDist + segLength >= targetDist) {
+      const segRatio = (targetDist - accumulatedDist) / segLength;
+      const p1 = coords[i];
+      const p2 = coords[i + 1];
+      const lng = p1[0] + (p2[0] - p1[0]) * segRatio;
+      const lat = p1[1] + (p2[1] - p1[1]) * segRatio;
+      return [lng, lat];
+    }
+    accumulatedDist += segLength;
+  }
+
+  return coords[coords.length - 1];
+};
+
 module.exports = {
   getHaversineDistance,
   getFallbackDuration,
   getRoadDuration,
-  calculateTotalETA
+  calculateTotalETA,
+  getPointAtRatio
 };

@@ -8,7 +8,9 @@ const {
   updateRiderOrderStatus,
   acceptDispatch,
   rejectDispatch,
-  rateOrder
+  rateOrder,
+  updateRiderLocation,
+  startOrderSimulation
 } = require('../controllers/orderController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const { orderLimiter } = require('../middleware/rateLimiter');
@@ -27,6 +29,12 @@ router.get('/:orderId', protect, getOrderById);
 
 // PUT /api/orders/:orderId/rider-status -> Update delivery status by rider
 router.put('/:orderId/rider-status', protect, authorize('rider'), updateRiderOrderStatus);
+
+// PUT /api/orders/:orderId/location -> Update live location coordinates by rider (HTTP Polling)
+router.put('/:orderId/location', protect, authorize('rider'), updateRiderLocation);
+
+// POST /api/orders/:orderId/start-simulation -> Start route simulation for active delivery
+router.post('/:orderId/start-simulation', protect, authorize('rider'), startOrderSimulation);
 
 // PUT /api/orders/:orderId/accept-dispatch -> Accept incoming delivery dispatch request
 router.put('/:orderId/accept-dispatch', protect, authorize('rider'), acceptDispatch);

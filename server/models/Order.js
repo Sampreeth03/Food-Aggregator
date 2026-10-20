@@ -91,6 +91,13 @@ const OrderSchema = new mongoose.Schema({
   riderRating: {
     type: Number,
     default: null
+  },
+  simulation: {
+    active: { type: Boolean, default: false },
+    startTime: { type: Date },
+    durationSeconds: { type: Number },
+    pathCoords: { type: [[Number]], default: [] },
+    speedMultiplier: { type: Number, default: 5 }
   }
 }, { timestamps: true }); // Automatically creates 'createdAt' and 'updatedAt' fields
 

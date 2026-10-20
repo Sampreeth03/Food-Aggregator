@@ -5,6 +5,7 @@ const Restaurant = require('../models/Restaurant');
 const RiderProfile = require('../models/RiderProfile');
 const User = require('../models/Users');
 const CustomerProfile = require('../models/CustomerProfile');
+const { getRoadDuration, getPointAtRatio } = require('../utils/etaHelper');
 
 // Passive helper to check if any assigned rider took too long to accept, and re-dispatches to next best rider
 const checkAndProcessRiderTimeouts = async () => {
@@ -273,20 +274,62 @@ exports.getCustomerOrders = async (req, res) => {
   }
 };
 
+// Helper to advance simulation of an order along its street route based on elapsed wall-clock time
+const advanceOrderSimulation = async (order) => {
+  if (!order || !order.simulation || !order.simulation.active || !order.simulation.pathCoords || order.simulation.pathCoords.length === 0) {
+    return;
+  }
+
+  if (order.status !== 'out_for_delivery') {
+    return;
+  }
+
+  const startTime = new Date(order.simulation.startTime).getTime();
+  const speed = order.simulation.speedMultiplier || 5;
+  const elapsedSeconds = ((Date.now() - startTime) / 1000) * speed;
+  const duration = order.simulation.durationSeconds || 600;
+  const ratio = Math.min(1, elapsedSeconds / duration);
+
+  const currentCoords = getPointAtRatio(order.simulation.pathCoords, ratio);
+  if (currentCoords) {
+    if (order.rider) {
+      const riderId = order.rider._id || order.rider;
+      await User.findByIdAndUpdate(riderId, {
+        location: {
+          type: 'Point',
+          coordinates: currentCoords
+        }
+      });
+    }
+
+    const remainingSec = Math.max(0, Math.round((duration - elapsedSeconds) / speed));
+    order.estimatedDeliveryTime = new Date(Date.now() + remainingSec * 1000);
+
+    if (ratio >= 1) {
+      order.simulation.active = false;
+    }
+    await order.save();
+  }
+};
+
 // 3. Get details of a single order (For tracking/review)
 exports.getOrderById = async (req, res) => {
   const { orderId } = req.params;
 
   try {
     await checkAndProcessRiderTimeouts();
-    const order = await Order.findById(orderId)
-      .populate('restaurant', 'name address location')
-      .populate('customer', 'name email location')
-      .populate('rider', 'name location');
-
+    let order = await Order.findById(orderId);
     if (!order) {
       return res.status(404).json({ msg: 'Order not found' });
     }
+
+    // Advance active simulation so polled data reflects fresh coordinates
+    await advanceOrderSimulation(order);
+
+    order = await Order.findById(orderId)
+      .populate('restaurant', 'name address location')
+      .populate('customer', 'name email location')
+      .populate('rider', 'name location');
 
     // Verify authorized user (Customer who ordered, Restaurant Owner, or Assigned Rider)
     const isCustomer = order.customer && order.customer._id.toString() === req.user.id;
@@ -315,6 +358,13 @@ exports.getOrderById = async (req, res) => {
 exports.getRiderOrders = async (req, res) => {
   try {
     await checkAndProcessRiderTimeouts();
+    
+    // Advance active simulations for rider's active jobs
+    const activeJobs = await Order.find({ rider: req.user.id, status: 'out_for_delivery' });
+    for (const job of activeJobs) {
+      await advanceOrderSimulation(job);
+    }
+
     const orders = await Order.find({ rider: req.user.id })
       .populate('restaurant', 'name address location')
       .populate('customer', 'name location')
@@ -513,6 +563,131 @@ exports.rateOrder = async (req, res) => {
     res.status(200).json({ msg: 'Ratings submitted successfully', order });
   } catch (err) {
     console.error(err);
+    res.status(500).send('Server Error');
+  }
+};
+
+// 9. Update live location by rider during delivery and recalculate ETA (HTTP Polling)
+exports.updateRiderLocation = async (req, res) => {
+  const { orderId } = req.params;
+  const { coords } = req.body; // [lng, lat]
+
+  if (!coords || !Array.isArray(coords) || coords.length !== 2 || isNaN(coords[0]) || isNaN(coords[1])) {
+    return res.status(400).json({ msg: 'Valid coordinates [lng, lat] are required.' });
+  }
+
+  try {
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ msg: 'Order not found' });
+    }
+
+    // Verify this rider is assigned to the order
+    if (!order.rider || order.rider.toString() !== req.user.id) {
+      return res.status(403).json({ msg: 'You are not authorized to update location for this order' });
+    }
+
+    const lng = parseFloat(coords[0]);
+    const lat = parseFloat(coords[1]);
+
+    // 1. Update Rider's location in the User collection
+    await User.findByIdAndUpdate(order.rider, {
+      location: {
+        type: 'Point',
+        coordinates: [lng, lat]
+      }
+    });
+
+    // Disable simulation if active since rider is sending real/manual GPS updates
+    if (order.simulation && order.simulation.active) {
+      order.simulation.active = false;
+    }
+
+    // 2. Recalculate ETA to customer delivery location using OSRM
+    let estimatedDeliveryTime = order.estimatedDeliveryTime;
+    const customerCoords = order.deliveryLocation?.coordinates || order.customer?.location?.coordinates;
+    if (customerCoords && customerCoords.length === 2) {
+      const durationSeconds = await getRoadDuration([lng, lat], customerCoords);
+      estimatedDeliveryTime = new Date(Date.now() + durationSeconds * 1000);
+      order.estimatedDeliveryTime = estimatedDeliveryTime;
+    }
+
+    await order.save();
+
+    res.status(200).json({
+      msg: 'Rider location and ETA updated successfully',
+      coords: [lng, lat],
+      estimatedDeliveryTime: estimatedDeliveryTime ? estimatedDeliveryTime.toISOString() : null
+    });
+  } catch (err) {
+    console.error('Error in updateRiderLocation:', err);
+    res.status(500).send('Server Error');
+  }
+};
+
+// 10. Start or resume route simulation on an order
+exports.startOrderSimulation = async (req, res) => {
+  const { orderId } = req.params;
+  const { durationSeconds, pathCoords, speedMultiplier } = req.body;
+
+  try {
+    const order = await Order.findById(orderId);
+    if (!order) return res.status(404).json({ msg: 'Order not found' });
+
+    if (!order.rider || order.rider.toString() !== req.user.id) {
+      return res.status(403).json({ msg: 'You are not authorized to start simulation for this order' });
+    }
+
+    let resolvedPath = pathCoords;
+    let resolvedDuration = durationSeconds;
+
+    // If client didn't provide pathCoords, fetch from OSRM
+    if (!resolvedPath || resolvedPath.length === 0) {
+      const restaurant = await Restaurant.findById(order.restaurant);
+      const restCoords = restaurant?.location?.coordinates;
+      const custCoords = order.deliveryLocation?.coordinates;
+      if (restCoords && custCoords) {
+        const url = `http://router.project-osrm.org/route/v1/driving/${restCoords[0]},${restCoords[1]};${custCoords[0]},${custCoords[1]}?overview=full&geometries=geojson`;
+        const resp = await fetch(url);
+        const data = await resp.json();
+        if (data && data.routes && data.routes.length > 0) {
+          resolvedPath = data.routes[0].geometry.coordinates;
+          resolvedDuration = data.routes[0].duration;
+        }
+      }
+    }
+
+    if (!resolvedPath || resolvedPath.length === 0) {
+      return res.status(400).json({ msg: 'Could not resolve route path for simulation.' });
+    }
+
+    const speed = speedMultiplier || 5;
+
+    order.simulation = {
+      active: true,
+      startTime: new Date(),
+      durationSeconds: resolvedDuration || 600,
+      pathCoords: resolvedPath,
+      speedMultiplier: speed
+    };
+
+    // Update rider initial location
+    if (resolvedPath[0] && order.rider) {
+      await User.findByIdAndUpdate(order.rider, {
+        location: {
+          type: 'Point',
+          coordinates: resolvedPath[0]
+        }
+      });
+    }
+
+    // Set estimated delivery time based on simulation duration
+    order.estimatedDeliveryTime = new Date(Date.now() + Math.round(resolvedDuration / speed) * 1000);
+
+    await order.save();
+    res.status(200).json({ msg: 'Simulation started successfully', simulation: order.simulation });
+  } catch (err) {
+    console.error('Error in startOrderSimulation:', err);
     res.status(500).send('Server Error');
   }
 };

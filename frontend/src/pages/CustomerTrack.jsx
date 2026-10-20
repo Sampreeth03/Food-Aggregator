@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { MapMock } from '../components/MapMock';
+import { MapReal } from '../components/MapReal';
 
 const StarRating = ({ value, onChange, disabled }) => {
   return (
@@ -33,8 +33,9 @@ export const CustomerTrack = ({ pageParams, navigateTo }) => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [liveRiderCoords, setLiveRiderCoords] = useState(null);
 
-  // Fetch order details
+  // Fetch order details & latest coordinates via HTTP Polling
   const fetchOrderDetails = async () => {
     try {
       const response = await fetch(`http://localhost:5000/api/orders/${orderId}`, {
@@ -47,6 +48,12 @@ export const CustomerTrack = ({ pageParams, navigateTo }) => {
       if (response.ok) {
         setOrder(data);
         setError('');
+        // Update live rider coordinates from latest polled data
+        if (data.rider && data.riderStatus === 'accepted' && data.rider.location?.coordinates) {
+          setLiveRiderCoords(data.rider.location.coordinates);
+        } else if (!data.rider || data.riderStatus !== 'accepted') {
+          setLiveRiderCoords(null);
+        }
       } else {
         setError(data.msg || 'Failed to retrieve order tracking details');
       }
@@ -67,10 +74,10 @@ export const CustomerTrack = ({ pageParams, navigateTo }) => {
 
     fetchOrderDetails();
 
-    // Set up polling to check order status every 4 seconds
+    // Set up HTTP polling every 15 seconds
     const interval = setInterval(() => {
       fetchOrderDetails();
-    }, 4000);
+    }, 15000);
 
     return () => clearInterval(interval);
   }, [orderId, token]);
@@ -311,10 +318,10 @@ export const CustomerTrack = ({ pageParams, navigateTo }) => {
       {order.status !== 'cancelled' && (
         <div className="flex-col gap-3">
           <h3 className="title-small">Live Delivery Map</h3>
-          <MapMock
+          <MapReal
             restaurantCoords={order.restaurant?.location?.coordinates}
             customerCoords={order.deliveryLocation?.coordinates || order.customer?.location?.coordinates}
-            riderCoords={order.rider && order.riderStatus === 'accepted' ? order.rider?.location?.coordinates : null}
+            riderCoords={liveRiderCoords}
             status={order.status}
           />
         </div>

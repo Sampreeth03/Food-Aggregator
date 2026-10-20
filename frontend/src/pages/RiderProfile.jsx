@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { API_BASE_URL } from '../config/api';
 
 export const RiderProfileView = () => {
   const { token, user, updateUser } = useContext(AuthContext);
@@ -32,7 +33,7 @@ export const RiderProfileView = () => {
 
   const fetchRiderProfile = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/riders/profile', {
+      const response = await fetch(`${API_BASE_URL}/api/riders/profile`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -144,7 +145,7 @@ export const RiderProfileView = () => {
     setOnboardError('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/riders/profile', {
+      const response = await fetch(`${API_BASE_URL}/api/riders/profile`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -190,7 +191,7 @@ export const RiderProfileView = () => {
     setIsSavingProfile(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/riders/profile', {
+      const response = await fetch(`${API_BASE_URL}/api/riders/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -250,7 +251,7 @@ export const RiderProfileView = () => {
     setIsSavingPassword(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/reset-password', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

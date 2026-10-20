@@ -3,6 +3,7 @@ import { CartContext } from '../context/CartContext';
 import { AuthContext } from '../context/AuthContext';
 import { AddressAutocomplete } from '../components/AddressAutocomplete';
 import { CheckIcon } from '../components/Icons';
+import { API_BASE_URL } from '../config/api';
 
 export const CustomerCart = ({ navigateTo, navigateToParams }) => {
   const { token } = useContext(AuthContext);
@@ -39,7 +40,7 @@ export const CustomerCart = ({ navigateTo, navigateToParams }) => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/customers/profile', {
+        const response = await fetch(`${API_BASE_URL}/api/customers/profile`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -124,7 +125,7 @@ export const CustomerCart = ({ navigateTo, navigateToParams }) => {
         }))
       };
 
-      const response = await fetch('http://localhost:5000/api/orders', {
+      const response = await fetch(`${API_BASE_URL}/api/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { AddressAutocomplete } from '../components/AddressAutocomplete';
+import { API_BASE_URL } from '../config/api';
 
 export const CustomerProfileView = () => {
   const { token, user, updateUser } = useContext(AuthContext);
@@ -94,7 +95,7 @@ export const CustomerProfileView = () => {
 
   const fetchProfile = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/customers/profile', {
+      const response = await fetch(`${API_BASE_URL}/api/customers/profile`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -173,7 +174,7 @@ export const CustomerProfileView = () => {
         lat: parseFloat(lat)
       };
 
-      const response = await fetch('http://localhost:5000/api/customers/profile', {
+      const response = await fetch(`${API_BASE_URL}/api/customers/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -233,7 +234,7 @@ export const CustomerProfileView = () => {
     setIsSavingPassword(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/reset-password', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -370,7 +371,7 @@ export const CustomerProfileView = () => {
                             lng: a.lng
                           }));
                           try {
-                            const res = await fetch('http://localhost:5000/api/customers/profile', {
+                            const res = await fetch(`${API_BASE_URL}/api/customers/profile`, {
                               method: 'PUT',
                               headers: {
                                 'Content-Type': 'application/json',
@@ -448,7 +449,7 @@ export const CustomerProfileView = () => {
                       { label: newSavedLabel, address: newSavedAddr, lat: newSavedLat, lng: newSavedLng }
                     ];
                     try {
-                      const res = await fetch('http://localhost:5000/api/customers/profile', {
+                      const res = await fetch(`${API_BASE_URL}/api/customers/profile`, {
                         method: 'PUT',
                         headers: {
                           'Content-Type': 'application/json',

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { API_BASE_URL } from '../config/api';
 
 // Helper to generate UUID for Google Places API Session Tokens
 const generateSessionToken = () => {
@@ -88,7 +89,7 @@ export const AddressAutocomplete = ({
 
     debounceTimerRef.current = setTimeout(async () => {
       try {
-        let queryUrl = `http://localhost:5000/api/places/autocomplete?input=${encodeURIComponent(value.trim())}&sessionToken=${sessionTokenRef.current}`;
+        let queryUrl = `${API_BASE_URL}/api/places/autocomplete?input=${encodeURIComponent(value.trim())}&sessionToken=${sessionTokenRef.current}`;
         
         if (userLocation) {
           queryUrl += `&lat=${userLocation.lat}&lng=${userLocation.lng}`;
@@ -123,7 +124,7 @@ export const AddressAutocomplete = ({
     try {
       // Pass place_id and sessionToken into details endpoint
       const response = await fetch(
-        `http://localhost:5000/api/places/details?place_id=${encodeURIComponent(suggestion.place_id)}&sessionToken=${sessionTokenRef.current}`
+        `${API_BASE_URL}/api/places/details?place_id=${encodeURIComponent(suggestion.place_id)}&sessionToken=${sessionTokenRef.current}`
       );
       
       const details = await response.json();

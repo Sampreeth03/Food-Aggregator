@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { API_BASE_URL } from '../config/api';
 
 export const RiderDashboardView = () => {
   const { token, user } = useContext(AuthContext);
@@ -12,7 +13,7 @@ export const RiderDashboardView = () => {
 
   const fetchRiderProfile = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/riders/profile', {
+      const response = await fetch(`${API_BASE_URL}/api/riders/profile`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -33,7 +34,7 @@ export const RiderDashboardView = () => {
 
   const fetchRiderOrders = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/orders/rider', {
+      const response = await fetch(`${API_BASE_URL}/api/orders/rider`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -58,7 +59,7 @@ export const RiderDashboardView = () => {
   const handleToggleOnline = async () => {
     setStatusMessage('');
     try {
-      const response = await fetch('http://localhost:5000/api/riders/profile/toggle-online', {
+      const response = await fetch(`${API_BASE_URL}/api/riders/profile/toggle-online`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`

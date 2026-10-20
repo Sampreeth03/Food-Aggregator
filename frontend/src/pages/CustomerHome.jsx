@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { CartContext } from '../context/CartContext';
 import { StarIcon, ClockIcon, MapPinIcon, VegIcon, NonVegIcon } from '../components/Icons';
+import { API_BASE_URL } from '../config/api';
 
 const CATEGORIES = [
   { id: 'all', label: 'All Cuisines', image: '/images/burger_banner.png' },
@@ -40,7 +41,7 @@ export const CustomerHome = ({ navigateTo }) => {
   useEffect(() => {
     const fetchRestaurants = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/restaurants', {
+        const response = await fetch(`${API_BASE_URL}/api/restaurants`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }

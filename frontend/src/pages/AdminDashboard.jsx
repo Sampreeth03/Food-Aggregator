@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { API_BASE_URL } from '../config/api';
 
 export const AdminDashboard = ({ navigateTo }) => {
   const { token } = useContext(AuthContext);
@@ -10,7 +11,7 @@ export const AdminDashboard = ({ navigateTo }) => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/admin/stats', {
+        const response = await fetch(`${API_BASE_URL}/api/admin/stats`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }

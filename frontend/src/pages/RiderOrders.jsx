@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { API_BASE_URL } from '../config/api';
 
 // Linear interpolation along a path
 const getPointAtRatio = (coords, ratio) => {
@@ -54,7 +55,7 @@ const RiderLocationSimulator = ({ orderId, restaurantCoords, customerCoords }) =
   // Helper to send coordinates to backend HTTP endpoint
   const sendLocationUpdate = async (coords) => {
     try {
-      await fetch(`http://localhost:5000/api/orders/${orderId}/location`, {
+      await fetch(`${API_BASE_URL}/api/orders/${orderId}/location`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -184,7 +185,7 @@ const RiderLocationSimulator = ({ orderId, restaurantCoords, customerCoords }) =
       setCurrentCoords(pathCoords[0]);
 
       // Notify backend to run server-side simulation state as well
-      await fetch(`http://localhost:5000/api/orders/${orderId}/start-simulation`, {
+      await fetch(`${API_BASE_URL}/api/orders/${orderId}/start-simulation`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -410,7 +411,7 @@ export const RiderOrdersView = ({ navigateTo }) => {
 
   const fetchRiderOrders = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/orders/rider', {
+      const response = await fetch(`${API_BASE_URL}/api/orders/rider`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -441,7 +442,7 @@ export const RiderOrdersView = ({ navigateTo }) => {
 
   const handlePickup = async (orderId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/orders/${orderId}/rider-status`, {
+      const response = await fetch(`${API_BASE_URL}/api/orders/${orderId}/rider-status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -460,7 +461,7 @@ export const RiderOrdersView = ({ navigateTo }) => {
 
   const handleAccept = async (orderId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/orders/${orderId}/accept-dispatch`, {
+      const response = await fetch(`${API_BASE_URL}/api/orders/${orderId}/accept-dispatch`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -478,7 +479,7 @@ export const RiderOrdersView = ({ navigateTo }) => {
 
   const handleReject = async (orderId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/orders/${orderId}/reject-dispatch`, {
+      const response = await fetch(`${API_BASE_URL}/api/orders/${orderId}/reject-dispatch`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -505,7 +506,7 @@ export const RiderOrdersView = ({ navigateTo }) => {
     setIsVerifying(true);
 
     try {
-      const response = await fetch(`http://localhost:5000/api/orders/${orderId}/rider-status`, {
+      const response = await fetch(`${API_BASE_URL}/api/orders/${orderId}/rider-status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

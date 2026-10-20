@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { AddressAutocomplete } from '../components/AddressAutocomplete';
+import { API_BASE_URL } from '../config/api';
 
 const AVAILABLE_CUISINES = [
   'North Indian',
@@ -85,7 +86,7 @@ export const RestaurantDashboard = () => {
   // Fetch restaurant profile
   const fetchRestaurantProfile = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/restaurants/my-restaurant', {
+      const response = await fetch(`${API_BASE_URL}/api/restaurants/my-restaurant`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -110,7 +111,7 @@ export const RestaurantDashboard = () => {
   // Fetch live active orders
   const fetchActiveOrders = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/restaurant-orders/active', {
+      const response = await fetch(`${API_BASE_URL}/api/restaurant-orders/active`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -130,7 +131,7 @@ export const RestaurantDashboard = () => {
   // Fetch complete order history for earnings & analytics
   const fetchOrderHistory = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/restaurant-orders/history', {
+      const response = await fetch(`${API_BASE_URL}/api/restaurant-orders/history`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -220,7 +221,7 @@ export const RestaurantDashboard = () => {
         ownerId: user.id
       };
 
-      const response = await fetch('http://localhost:5000/api/restaurants', {
+      const response = await fetch(`${API_BASE_URL}/api/restaurants`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -250,7 +251,7 @@ export const RestaurantDashboard = () => {
   // Update active order status
   const handleUpdateStatus = async (orderId, nextStatus) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/restaurant-orders/${orderId}/status`, {
+      const response = await fetch(`${API_BASE_URL}/api/restaurant-orders/${orderId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -273,7 +274,7 @@ export const RestaurantDashboard = () => {
     setMenuMessage('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/restaurants/menu', {
+      const response = await fetch(`${API_BASE_URL}/api/restaurants/menu`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -306,7 +307,7 @@ export const RestaurantDashboard = () => {
     setHoursMessage('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/restaurants/operating-hours', {
+      const response = await fetch(`${API_BASE_URL}/api/restaurants/operating-hours`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

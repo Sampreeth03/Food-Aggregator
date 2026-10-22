@@ -10,6 +10,7 @@ const {
   rejectDispatch,
   rateOrder,
   updateRiderLocation,
+  getOrderLiveLocation,
   startOrderSimulation
 } = require('../controllers/orderController');
 const { protect, authorize } = require('../middleware/authMiddleware');
@@ -26,6 +27,9 @@ router.get('/rider', protect, authorize('rider'), getRiderOrders);
 
 // GET /api/orders/:orderId -> Get single order details (authorized for customer, restaurant owner, or rider)
 router.get('/:orderId', protect, getOrderById);
+
+// GET /api/orders/:orderId/live-location -> High-performance in-memory live tracking (Redis)
+router.get('/:orderId/live-location', protect, getOrderLiveLocation);
 
 // PUT /api/orders/:orderId/rider-status -> Update delivery status by rider
 router.put('/:orderId/rider-status', protect, authorize('rider'), updateRiderOrderStatus);

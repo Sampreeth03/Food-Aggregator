@@ -66,6 +66,31 @@ export const CustomerTrack = ({ pageParams, navigateTo }) => {
     }
   };
 
+  // Lightweight polling: Only fetch real-time live coordinates from Redis (< 1ms)
+  const fetchLiveLocation = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/orders/${orderId}/live-location`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const liveData = await response.json();
+        if (liveData.coords && liveData.coords.length === 2) {
+          setLiveRiderCoords(liveData.coords);
+        }
+        if (liveData.estimatedDeliveryTime) {
+          setOrder((prev) => (prev ? { ...prev, estimatedDeliveryTime: liveData.estimatedDeliveryTime } : prev));
+        }
+        if (liveData.status && liveData.status === 'delivered') {
+          fetchOrderDetails(); // Re-sync full order details upon final delivery
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching live location:', err);
+    }
+  };
+
   useEffect(() => {
     if (!orderId) {
       setError('Missing Order ID parameter');
@@ -73,11 +98,12 @@ export const CustomerTrack = ({ pageParams, navigateTo }) => {
       return;
     }
 
+    // 1. Initial page load: Fetch full order details (restaurant, items, address) ONCE
     fetchOrderDetails();
 
-    // Set up HTTP polling every 15 seconds
+    // 2. High-frequency 15-second polling: Only query lightweight live coordinates from Redis
     const interval = setInterval(() => {
-      fetchOrderDetails();
+      fetchLiveLocation();
     }, 15000);
 
     return () => clearInterval(interval);

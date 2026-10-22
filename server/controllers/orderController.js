@@ -348,9 +348,65 @@ exports.getOrderById = async (req, res) => {
       return res.status(403).json({ msg: 'Access denied to this order' });
     }
 
+    // Overlay real-time coordinates from Redis if active
+    const liveTracking = await getLiveTracking(orderId);
+    if (liveTracking && order.rider) {
+      if (!order.rider.location) order.rider.location = { type: 'Point', coordinates: [] };
+      order.rider.location.coordinates = liveTracking.coords;
+      if (liveTracking.eta) {
+        order.estimatedDeliveryTime = liveTracking.eta;
+      }
+    }
+
     res.status(200).json(order);
   } catch (err) {
     console.error(err);
+    res.status(500).send('Server Error');
+  }
+};
+
+// 3b. Dedicated lightweight live location endpoint (< 1ms via Redis RAM)
+exports.getOrderLiveLocation = async (req, res) => {
+  const { orderId } = req.params;
+
+  try {
+    // 1. Check Redis Hash first (Sub-millisecond)
+    const liveTracking = await getLiveTracking(orderId);
+    if (liveTracking && liveTracking.coords) {
+      return res.status(200).json({
+        coords: liveTracking.coords,
+        estimatedDeliveryTime: liveTracking.eta,
+        updatedAt: liveTracking.updatedAt,
+        source: 'redis'
+      });
+    }
+
+    // 2. Fallback if key missing or Redis down: lean MongoDB query (zero restaurant/customer populates)
+    const order = await Order.findById(orderId).select('rider status estimatedDeliveryTime').populate('rider', 'location');
+    if (!order) {
+      return res.status(404).json({ msg: 'Order not found' });
+    }
+
+    const coords = order.rider?.location?.coordinates || null;
+    const eta = order.estimatedDeliveryTime;
+
+    // Warm Redis cache for subsequent polls
+    if (coords) {
+      await setLiveTracking(orderId, {
+        riderId: order.rider?._id,
+        coords,
+        eta
+      });
+    }
+
+    res.status(200).json({
+      coords,
+      estimatedDeliveryTime: eta ? eta.toISOString() : null,
+      status: order.status,
+      source: 'mongodb'
+    });
+  } catch (err) {
+    console.error('Error in getOrderLiveLocation:', err);
     res.status(500).send('Server Error');
   }
 };

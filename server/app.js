@@ -2,12 +2,15 @@ const express = require('express');
 const connectDB = require('./config/db');
 const cors = require('cors');
 require('dotenv').config();
+const { connectRedis } = require('./config/redis');
+
 
 const crypto = require('crypto');
 process.env.JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(64).toString('hex');
 
 const app = express();
 connectDB();
+connectRedis();
 
 app.use(cors());
 app.use(express.json());

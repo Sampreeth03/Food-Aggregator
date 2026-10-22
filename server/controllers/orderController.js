@@ -6,7 +6,8 @@ const RiderProfile = require('../models/RiderProfile');
 const User = require('../models/Users');
 const CustomerProfile = require('../models/CustomerProfile');
 const { getRoadDuration, getPointAtRatio } = require('../utils/etaHelper');
-
+const { setLiveTracking, getLiveTracking, clearLiveTracking } = require('../utils/trackingCache');
+const { isRedisReady } = require('../config/redis');
 // Passive helper to check if any assigned rider took too long to accept, and re-dispatches to next best rider
 const checkAndProcessRiderTimeouts = async () => {
   try {
@@ -81,7 +82,7 @@ const geocodeAddress = async (address) => {
 
 // 1. Place a new order (Strictly for customers)
 exports.placeOrder = async (req, res) => {
-  const customerId = req.user.id; 
+  const customerId = req.user.id;
   const { restaurantId, items, deliveryAddress, address, lat, lng, saveAddress, saveAddressLabel } = req.body;
 
   try {
@@ -96,8 +97,8 @@ exports.placeOrder = async (req, res) => {
     }
 
     if (!finalAddress) {
-      return res.status(400).json({ 
-        msg: 'Delivery address is required to place an order. Please provide or confirm your delivery address.' 
+      return res.status(400).json({
+        msg: 'Delivery address is required to place an order. Please provide or confirm your delivery address.'
       });
     }
 
@@ -204,8 +205,8 @@ exports.placeOrder = async (req, res) => {
     }
 
     if (!isOpen) {
-      return res.status(400).json({ 
-        msg: `Restaurant is currently closed. Operating hours: ${openTime} - ${closeTime}. Current time: ${currentTime}.` 
+      return res.status(400).json({
+        msg: `Restaurant is currently closed. Operating hours: ${openTime} - ${closeTime}. Current time: ${currentTime}.`
       });
     }
 
@@ -214,7 +215,7 @@ exports.placeOrder = async (req, res) => {
 
     for (let i = 0; i < items.length; i++) {
       const cartItem = items[i];
-      const officialMenuItem = restaurant.menu.find(function(menuItem) {
+      const officialMenuItem = restaurant.menu.find(function (menuItem) {
         return menuItem._id.toString() === cartItem.menuItemId;
       });
 
@@ -334,7 +335,7 @@ exports.getOrderById = async (req, res) => {
     // Verify authorized user (Customer who ordered, Restaurant Owner, or Assigned Rider)
     const isCustomer = order.customer && order.customer._id.toString() === req.user.id;
     const isRider = order.rider && order.rider._id.toString() === req.user.id;
-    
+
     let isRestaurantOwner = false;
     if (order.restaurant) {
       const restaurantDoc = await Restaurant.findById(order.restaurant._id);
@@ -358,7 +359,7 @@ exports.getOrderById = async (req, res) => {
 exports.getRiderOrders = async (req, res) => {
   try {
     await checkAndProcessRiderTimeouts();
-    
+
     // Advance active simulations for rider's active jobs
     const activeJobs = await Order.find({ rider: req.user.id, status: 'out_for_delivery' });
     for (const job of activeJobs) {
@@ -401,7 +402,7 @@ exports.updateRiderOrderStatus = async (req, res) => {
       if (!deliveryOtp || parseInt(deliveryOtp) !== order.deliveryOtp) {
         return res.status(400).json({ msg: 'Invalid Delivery OTP' });
       }
-      
+
       order.status = 'delivered';
       order.paymentStatus = 'completed'; // auto-complete payment upon delivery for mockup simplicity
 
@@ -568,6 +569,7 @@ exports.rateOrder = async (req, res) => {
 };
 
 // 9. Update live location by rider during delivery and recalculate ETA (HTTP Polling)
+// 9. Update live location by rider during delivery and recalculate ETA (Redis In-Memory + Fallback)
 exports.updateRiderLocation = async (req, res) => {
   const { orderId } = req.params;
   const { coords } = req.body; // [lng, lat]
@@ -575,6 +577,9 @@ exports.updateRiderLocation = async (req, res) => {
   if (!coords || !Array.isArray(coords) || coords.length !== 2 || isNaN(coords[0]) || isNaN(coords[1])) {
     return res.status(400).json({ msg: 'Valid coordinates [lng, lat] are required.' });
   }
+
+  const lng = parseFloat(coords[0]);
+  const lat = parseFloat(coords[1]);
 
   try {
     const order = await Order.findById(orderId);
@@ -587,43 +592,71 @@ exports.updateRiderLocation = async (req, res) => {
       return res.status(403).json({ msg: 'You are not authorized to update location for this order' });
     }
 
-    const lng = parseFloat(coords[0]);
-    const lat = parseFloat(coords[1]);
-
-    // 1. Update Rider's location in the User collection
-    await User.findByIdAndUpdate(order.rider, {
-      location: {
-        type: 'Point',
-        coordinates: [lng, lat]
-      }
-    });
-
-    // Disable simulation if active since rider is sending real/manual GPS updates
+    // Disable simulation if active since real rider GPS is incoming
     if (order.simulation && order.simulation.active) {
       order.simulation.active = false;
+      await order.save();
     }
 
-    // 2. Recalculate ETA to customer delivery location using OSRM
     let estimatedDeliveryTime = order.estimatedDeliveryTime;
     const customerCoords = order.deliveryLocation?.coordinates || order.customer?.location?.coordinates;
-    if (customerCoords && customerCoords.length === 2) {
-      const durationSeconds = await getRoadDuration([lng, lat], customerCoords);
-      estimatedDeliveryTime = new Date(Date.now() + durationSeconds * 1000);
-      order.estimatedDeliveryTime = estimatedDeliveryTime;
+
+    // Check cached ETA from Redis to avoid spamming OSRM every 15s
+    const cachedTracking = await getLiveTracking(orderId);
+    const lastUpdateAge = cachedTracking ? (Date.now() - cachedTracking.updatedAt) : Infinity;
+
+    // Only recalculate OSRM ETA if we don't have one or if > 60 seconds have passed
+    if (customerCoords && customerCoords.length === 2 && (!cachedTracking?.eta || lastUpdateAge > 60000)) {
+      try {
+        const durationSeconds = await getRoadDuration([lng, lat], customerCoords);
+        estimatedDeliveryTime = new Date(Date.now() + durationSeconds * 1000);
+      } catch (err) {
+        console.warn('OSRM routing fetch failed, using fallback ETA:', err.message);
+      }
+    } else if (cachedTracking?.eta) {
+      estimatedDeliveryTime = new Date(cachedTracking.eta);
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // REDIS IN-MEMORY WRITE (Sub-millisecond)
+    // ─────────────────────────────────────────────────────────────
+    if (isRedisReady()) {
+      await setLiveTracking(orderId, {
+        riderId: order.rider,
+        coords: [lng, lat],
+        eta: estimatedDeliveryTime
+      });
+
+      return res.status(200).json({
+        msg: 'Rider location and ETA updated successfully (Redis cached)',
+        coords: [lng, lat],
+        estimatedDeliveryTime: estimatedDeliveryTime ? estimatedDeliveryTime.toISOString() : null,
+        source: 'redis'
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // GRACEFUL FALLBACK (If Redis is down, write to MongoDB as before)
+    // ─────────────────────────────────────────────────────────────
+    await User.findByIdAndUpdate(order.rider, {
+      location: { type: 'Point', coordinates: [lng, lat] }
+    });
+
+    order.estimatedDeliveryTime = estimatedDeliveryTime;
     await order.save();
 
     res.status(200).json({
-      msg: 'Rider location and ETA updated successfully',
+      msg: 'Rider location and ETA updated successfully (MongoDB fallback)',
       coords: [lng, lat],
-      estimatedDeliveryTime: estimatedDeliveryTime ? estimatedDeliveryTime.toISOString() : null
+      estimatedDeliveryTime: estimatedDeliveryTime ? estimatedDeliveryTime.toISOString() : null,
+      source: 'mongodb'
     });
   } catch (err) {
     console.error('Error in updateRiderLocation:', err);
     res.status(500).send('Server Error');
   }
 };
+
 
 // 10. Start or resume route simulation on an order
 exports.startOrderSimulation = async (req, res) => {
